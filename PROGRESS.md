@@ -7,7 +7,7 @@ Source of truth for product behavior stays in the docs folder (`ai-generated-jun
 - [x] Phase 0 — Scaffold (Next 16.4.0, React 19.3.0, TS 5, Tailwind v4, baseline deps, folders, `npm run build` + eslint + `drizzle-kit check` green)
 - [x] Phase 1 — DB + auth (22 tables migrated to Neon, Better Auth anonymous + Google, transactional anonymous→Google link migration, profile bootstrap, guest session verified live)
 - [x] Phase 2 — Deterministic core (mulberry32 PRNG, event validator, runtime state machine, pure-TS SHA-256 digest, all six engine scorers + sanitizeGhost + simulate, 18 unit tests green)
-- [ ] Phase 3 — Ranked lifecycle (session create/submit, HMAC token, consumed-at rule, DB uniqueness)
+- [x] Phase 3 — Ranked lifecycle (HMAC session token, session/consume/submit routes, consumed-at rule, technical retry, Ghost+ mode gates, challenge outcome; streak/XP/achievements deferred to Phase 6, ranked+challenge dual-satisfaction deferred to Phase 5)
 - [ ] Phase 4 — PULSE + SNAP slice (Claude-designed UI, Canvas 2D, audio, reduced motion, offline buffer)
 - [ ] Phase 5 — Viral loop (result → challenge → recipient race → revenge, share + OG)
 - [ ] Phase 6 — Progression (streak, XP ledger, levels, achievements, profile history)
