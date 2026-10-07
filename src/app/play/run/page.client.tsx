@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { PulseRunner } from '@/components/game/pulse-runner'
 import { SnapRunner } from '@/components/game/snap-runner'
-import { useRunSession } from '@/features/game/hooks/useRunSession.hook'
+import { ShareButtons } from '@/components/results/share-buttons'
+import { useCreateChallenge } from '@/features/game/mutations/useCreateChallenge.mutation'
+import { useRunSession, type TRunResult } from '@/features/game/hooks/useRunSession.hook'
 import { useGameStore, loadSnapshotFromStorage, type TGameSnapshot } from '@/features/game/store/game-store'
 import type { GameInputEvent } from '@/games/core/game-module'
 import { getGame } from '@/games/registry'
@@ -32,10 +34,15 @@ function BusyOverlay({ label }: { label: string }) {
   )
 }
 
-function ResultPanel({ game, events, score }: { game: TGameSnapshot['game']; events: GameInputEvent[]; score: number }) {
+function ResultPanel({ snapshot, events, result }: { snapshot: TGameSnapshot; events: GameInputEvent[]; result: TRunResult }) {
   const router = useRouter()
   const { clear } = useGameStore()
+  const createChallenge = useCreateChallenge()
+  const [sharedUrl, setSharedUrl] = useState<string | null>(null)
+  const [challengeError, setChallengeError] = useState<string | null>(null)
   const [display, setDisplay] = useState<number | null>(null)
+  const { game, challenge } = snapshot
+  const score = result.score
   const reduced =
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   let metricsLine = ''
@@ -64,27 +71,76 @@ function ResultPanel({ game, events, score }: { game: TGameSnapshot['game']; eve
     clear()
     router.push(href)
   }
+  const makeChallenge = async () => {
+    setChallengeError(null)
+    try {
+      const created = await createChallenge.mutateAsync(result.runId)
+      setSharedUrl(created.url)
+    } catch (e) {
+      setChallengeError(e instanceof Error ? e.message : 'challenge-failed')
+    }
+  }
+  const delta = challenge ? score - challenge.targetScore : 0
+  const outcomeTitle = !challenge
+    ? null
+    : result.outcome === 'win'
+      ? 'YOU CAUGHT IT.'
+      : result.outcome === 'loss'
+        ? 'IT GOT AWAY.'
+        : result.outcome === 'tie'
+          ? 'DEAD HEAT.'
+          : 'RUN REJECTED'
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center animate-reveal">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-spectral-cyan">Server validated</p>
+      {challenge ? (
+        <>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-spectral-violet">
+            vs {challenge.handle} · {challenge.targetScore}
+          </p>
+          <p className={`font-display text-4xl font-800 ${result.outcome === 'win' ? 'text-signal-lime' : result.outcome === 'loss' ? 'text-spectral-violet' : ''}`}>
+            {outcomeTitle}
+          </p>
+        </>
+      ) : (
+        <p className="text-[11px] uppercase tracking-[0.18em] text-spectral-cyan">Server validated</p>
+      )}
       <p className="tnum font-display text-6xl font-800">{display ?? score}</p>
+      {challenge && (
+        <p className="tnum text-sm text-ghost-muted">
+          {delta > 0 ? `+${delta}` : `${delta}`} against {challenge.targetScore}
+        </p>
+      )}
       {metricsLine && <p className="text-xs text-ghost-muted">{metricsLine}</p>}
-      <div className="flex w-full flex-col gap-2">
-        <button
-          type="button"
-          onClick={() => leave('/')}
-          className="flex min-h-12 items-center justify-center rounded-control bg-spectral-cyan px-5 font-display text-sm font-800 tracking-[0.14em] text-ink-950"
-        >
-          BACK TO TODAY
-        </button>
-        <button
-          type="button"
-          onClick={() => leave('/leagues')}
-          className="flex min-h-12 items-center justify-center rounded-control border border-white/15 px-5 text-sm font-600"
-        >
-          VIEW LEAGUES
-        </button>
-      </div>
+      {sharedUrl ? (
+        <div className="w-full">
+          <ShareButtons
+            url={sharedUrl}
+            title="Ghost60 challenge"
+            text={challenge ? `I just raced ${challenge.handle}'s ghost. Revenge?` : 'Race my ghost.'}
+          />
+        </div>
+      ) : (
+        <div className="flex w-full flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => void makeChallenge()}
+            disabled={createChallenge.isPending}
+            className="flex min-h-12 items-center justify-center rounded-control bg-spectral-cyan px-5 font-display text-sm font-800 tracking-[0.14em] text-ink-950 disabled:opacity-50"
+          >
+            {createChallenge.isPending ? 'WORKING…' : challenge ? 'SEND REVENGE' : 'RACE MY GHOST'}
+          </button>
+          {challengeError && (
+            <p role="alert" className="text-xs text-rival-coral">{challengeError}</p>
+          )}
+          <button
+            type="button"
+            onClick={() => leave('/')}
+            className="flex min-h-12 items-center justify-center rounded-control border border-white/15 px-5 text-sm font-600"
+          >
+            BACK TO TODAY
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -96,7 +152,7 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
 
   if (session.phase === 'result' && session.result) {
     return (
-      <ResultPanel game={snapshot.game} events={session.eventsRef.current} score={session.result.score} />
+      <ResultPanel snapshot={snapshot} events={session.eventsRef.current} result={session.result} />
     )
   }
   if (session.phase === 'pending') {

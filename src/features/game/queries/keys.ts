@@ -1,5 +1,6 @@
 export const QUERY_KEYS = {
   SESSION: 'game-session',
   TODAY: 'game-today',
-  RUNS: 'game-runs'
+  RUNS: 'game-runs',
+  CHALLENGES: 'game-challenges'
 } as const

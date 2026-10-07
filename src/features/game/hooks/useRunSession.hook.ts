@@ -14,6 +14,7 @@ export type TRunResult = {
   score: number
   valid: boolean
   runId: string
+  outcome: string | null
 }
 
 type TLogInput = Omit<Extract<GameInputEvent, { type: 'tap' }>, 't'> | Omit<Extract<GameInputEvent, { type: 'choice' }>, 't'> | Omit<Extract<GameInputEvent, { type: 'pointer_down' | 'pointer_move' | 'pointer_up' }>, 't'>
@@ -60,7 +61,12 @@ export function useRunSession(game: TPublicGame, token: string) {
       try {
         const data = await submitRef.current({ token, events, visibilityInterruptions })
         await clearPending(token).catch(() => undefined)
-        setResult({ score: data.run.validatedScore, valid: data.run.valid, runId: String(data.run.id) })
+        setResult({
+          score: data.run.validatedScore,
+          valid: data.run.valid,
+          runId: String(data.run.id),
+          outcome: data.outcome
+        })
         setPhase('result')
         if (data.run.valid && data.run.validatedScore > 0) audio.win()
       } catch (e) {

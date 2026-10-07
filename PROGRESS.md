@@ -9,7 +9,7 @@ Source of truth for product behavior stays in the docs folder (`ai-generated-jun
 - [x] Phase 2 — Deterministic core (mulberry32 PRNG, event validator, runtime state machine, pure-TS SHA-256 digest, all six engine scorers + sanitizeGhost + simulate, 18 unit tests green)
 - [x] Phase 3 — Ranked lifecycle (HMAC session token, session/consume/submit routes, consumed-at rule, technical retry, Ghost+ mode gates, challenge outcome; streak/XP/achievements deferred to Phase 6, ranked+challenge dual-satisfaction deferred to Phase 5)
 - [x] Phase 4 — PULSE + SNAP slice (Canvas 2D runners, countdown state machine, WebAudio cues, motion/sound prefs in `/settings`, IndexedDB offline buffer with retry, preflight + run + result screens, headless-Chromium full-run E2E green)
-- [ ] Phase 5 — Viral loop (result → challenge → recipient race → revenge, share + OG)
+- [x] Phase 5 — Viral loop (challenge create/disable API, public landing with expired states, dynamic OG cards + metadata, anonymous race flow, frozen win/loss/tie, revenge challenges, Web Share + copy fallback; ranked+challenge dual-satisfaction still deferred)
 - [ ] Phase 6 — Progression (streak, XP ledger, levels, achievements, profile history)
 - [ ] Phase 7 — Leagues (invite slug, best-5-of-7 NORMALIZED standings)
 - [ ] Phase 8 — Remaining engines (ORBIT → RECALL → SHIFT → TRACE, one at a time)

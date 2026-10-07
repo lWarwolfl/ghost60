@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto'
 import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { db } from '@/drizzle'
-import { Challenge, ChallengeAttempt, DailyGame, Run, RunSession, type TDailyGame } from '@/drizzle/schema'
+import { Challenge, ChallengeAttempt, DailyGame, PlayerProfile, Run, RunSession, type TDailyGame } from '@/drizzle/schema'
 import { SessionRequestSchema } from '@/features/game/schemas/session.schema'
 import { getCurrentUser } from '@/lib/auth/server'
 import { getTodayDailyGame } from '@/lib/game/daily'
@@ -147,6 +147,7 @@ export async function POST(req: Request) {
         sessionId: retryId,
         expiresAt: retryExpiry.toISOString(),
         technicalRetry: true,
+        challenge: null,
         game: publicGame(targetGame, config, durationMs)
       })
     }
@@ -177,5 +178,19 @@ export async function POST(req: Request) {
     expiresAt,
     metadata: {}
   })
-  return NextResponse.json({ token, sessionId, expiresAt: expiresAt.toISOString(), game: publicGame(targetGame, config, durationMs) })
+  let challenge: { id: string; slug: string; handle: string; targetScore: number } | null = null
+  if (mode === 'challenge') {
+    const ch = (await db.select().from(Challenge).where(eq(Challenge.id, challengeId as string)))[0]
+    if (ch) {
+      const src = (await db.select().from(Run).where(eq(Run.id, ch.sourceRunId)))[0]
+      const prof = (await db.select().from(PlayerProfile).where(eq(PlayerProfile.userId, ch.creatorUserId)))[0]
+      challenge = {
+        id: ch.id,
+        slug: ch.publicSlug,
+        handle: prof?.handle ?? 'ghost',
+        targetScore: src?.validatedScore ?? 0
+      }
+    }
+  }
+  return NextResponse.json({ token, sessionId, expiresAt: expiresAt.toISOString(), challenge, game: publicGame(targetGame, config, durationMs) })
 }

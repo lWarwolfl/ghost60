@@ -18,6 +18,12 @@ export type TGameSnapshot = {
   sessionId: string
   expiresAt: string
   game: TPublicGame
+  challenge: {
+    id: string
+    slug: string
+    handle: string
+    targetScore: number
+  } | null
 }
 
 type TGameStore = {
