@@ -12,6 +12,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:check": "drizzle-kit check",
     "pwa:icons": "node scripts/gen-pwa-icons.mjs",
+    "assets:upload": "node scripts/upload-campaign-assets.mjs",
     "test": "vitest run",
     "test:e2e": "playwright test"
   },
@@ -19,6 +20,7 @@
     "@hookform/resolvers": "5.9",
     "@iconify/react": "^6.0.2",
     "@imagekit/next": "^2.1.6",
+    "@imagekit/nodejs": "^7.8.0",
     "@tanstack/react-query": "5.102",
     "better-auth": "^1.7.2",
     "class-variance-authority": "^0.7.1",

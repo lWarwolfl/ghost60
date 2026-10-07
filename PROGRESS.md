@@ -22,11 +22,13 @@ Source of truth for product behavior stays in the docs folder (`ai-generated-jun
 - [ ] Phase 14 — Release QA (bundle, CPU, E2E matrix, anti-cheat fuzz, SEO, OAuth, backup)
 - [ ] Phase 15 — Launch (seed schedule, launch league, rollover, monitoring)
 - [ ] Phase 16 — Play Store via Bubblewrap (needs production domain + signing key; see checklist)
+- [ ] Deferred — Email flows (plan: pack `docs/EMAIL_FLOWS.md`; Gmail SMTP + Ghost60 template mirroring perfectest-cv; no-spec-change flows vs proposed invite/reminder flows)
 
 ## Assets
 
 - Needed/generated raster list (GPT Plus jobs, specs + prompts): `agent-pack/docs/ASSET_REQUESTS.md` in the docs folder.
-- Awaiting from owner: default OG image, Twitter image, Play feature graphic (optional: hero texture, static share fallbacks).
+- Awaiting from owner: ~~default OG image, Twitter image, Play feature graphic, email header~~ all received 2026-10-07 (optional: hero texture, static share fallbacks — also received).
+- Campaign art upload to ImageKit `/ghost60` still pending (no network egress from build machine; run `npm run assets:upload` from a connected machine).
 - Code will consume them as: `src/app/opengraph-image.png`, `src/app/twitter-image.png`, ImageKit `/ghost60` folder, Phase 16 release folder.
 
 ## Bubblewrap / TWA launch checklist (deferred to deploy time)
