@@ -6,6 +6,7 @@ import { SubmitRequestSchema } from '@/features/game/schemas/session.schema'
 import { getCurrentUser } from '@/lib/auth/server'
 import { eventDigest } from '@/games/core/digest'
 import type { GameInputEvent } from '@/games/core/game-module'
+import { applyProgression } from '@/lib/game/progression'
 import { verifySessionToken } from '@/lib/game/token'
 import { getGame } from '@/games/registry'
 
@@ -116,19 +117,22 @@ export async function POST(req: Request) {
     const run = inserted[0]
 
     let outcome: string | null = null
+    let attemptId: string | undefined
+    let sourceScore: number | undefined
     if (session.mode === 'challenge' && session.challengeId) {
       const challenges = await db.select().from(Challenge).where(eq(Challenge.id, session.challengeId))
       const challenge = challenges[0]
       if (challenge) {
         const sources = await db.select().from(Run).where(eq(Run.id, challenge.sourceRunId))
         const source = sources[0]
+        sourceScore = source?.validatedScore
         if (source && result.valid) {
           const delta = result.score - source.validatedScore
           outcome = delta > 0 ? 'win' : delta < 0 ? 'loss' : 'tie'
         } else {
           outcome = 'invalid'
         }
-        await db
+        const attempts = await db
           .insert(ChallengeAttempt)
           .values({
             challengeId: challenge.id,
@@ -138,9 +142,27 @@ export async function POST(req: Request) {
             scoreDelta: source ? result.score - source.validatedScore : 0
           })
           .onConflictDoNothing({ target: [ChallengeAttempt.challengeId, ChallengeAttempt.recipientUserId] })
+          .returning()
+        attemptId = attempts[0]?.id
       }
     }
-    return NextResponse.json({ run, outcome })
+    let progression = { xpAwarded: 0, unlocked: [] as string[], isPersonalBest: false }
+    try {
+      const applied = await applyProgression({
+        userId: user.id,
+        run: { id: run.id, mode: run.mode, valid: run.valid, validatedScore: run.validatedScore, dailyGameId: run.dailyGameId },
+        engineId: game.gameId,
+        gameDate: game.gameDate,
+        outcome,
+        attemptId,
+        sourceScore,
+        isGhostPlus: false
+      })
+      progression = { xpAwarded: applied.xpAwarded, unlocked: applied.unlocked, isPersonalBest: applied.isPersonalBest }
+    } catch {
+      progression = { xpAwarded: 0, unlocked: [], isPersonalBest: false }
+    }
+    return NextResponse.json({ run, outcome, progression })
   } catch (e) {
     if (isConflict(e)) return NextResponse.json({ error: 'ranked-used' }, { status: 409 })
     throw e

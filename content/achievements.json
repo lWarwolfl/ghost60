@@ -1,0 +1,52 @@
+[
+  {
+    "id": "first_trace",
+    "title": "First Trace",
+    "description": "Complete your first valid run."
+  },
+  {
+    "id": "echo_found",
+    "title": "Echo Found",
+    "description": "Complete your first received challenge."
+  },
+  {
+    "id": "haunter",
+    "title": "Haunter",
+    "description": "Send five challenges that get completed."
+  },
+  {
+    "id": "photo_finish",
+    "title": "Photo Finish",
+    "description": "Win a ghost race by less than 1%."
+  },
+  {
+    "id": "clean_sweep",
+    "title": "Clean Sweep",
+    "description": "Win five challenge races in one day."
+  },
+  {
+    "id": "seven_signals",
+    "title": "Seven Signals",
+    "description": "Reach a 7-day streak."
+  },
+  {
+    "id": "thirty_signals",
+    "title": "Thirty Signals",
+    "description": "Reach a 30-day streak."
+  },
+  {
+    "id": "six_senses",
+    "title": "Six Senses",
+    "description": "Play every launch engine."
+  },
+  {
+    "id": "personal_haunting",
+    "title": "Personal Haunting",
+    "description": "Beat your past self in Ghost+."
+  },
+  {
+    "id": "league_signal",
+    "title": "League Signal",
+    "description": "Finish a weekly league round."
+  }
+]

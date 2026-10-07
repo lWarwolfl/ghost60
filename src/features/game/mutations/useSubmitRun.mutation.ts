@@ -16,7 +16,11 @@ async function submitRun(payload: TSubmitPayload) {
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error ?? 'submit-failed')
-  return data as { run: Record<string, unknown> & { validatedScore: number; valid: boolean }; outcome: string | null }
+  return data as {
+    run: Record<string, unknown> & { validatedScore: number; valid: boolean }
+    outcome: string | null
+    progression: { xpAwarded: number; unlocked: string[]; isPersonalBest: boolean } | null
+  }
 }
 
 export function useSubmitRun() {

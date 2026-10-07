@@ -105,6 +105,14 @@ function ResultPanel({ snapshot, events, result }: { snapshot: TGameSnapshot; ev
         <p className="text-[11px] uppercase tracking-[0.18em] text-spectral-cyan">Server validated</p>
       )}
       <p className="tnum font-display text-6xl font-800">{display ?? score}</p>
+      {result.isPersonalBest && (
+        <p className="rounded-control border border-signal-lime/60 px-3 py-1 font-display text-xs font-800 tracking-[0.18em] text-signal-lime">
+          NEW PERSONAL BEST
+        </p>
+      )}
+      {result.xpAwarded > 0 && (
+        <p className="tnum text-xs text-ghost-muted">+{result.xpAwarded} XP</p>
+      )}
       {challenge && (
         <p className="tnum text-sm text-ghost-muted">
           {delta > 0 ? `+${delta}` : `${delta}`} against {challenge.targetScore}

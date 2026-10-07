@@ -13,6 +13,12 @@ export function Header() {
         </Link>
         <nav className="flex items-center gap-1 text-sm" aria-label="Primary">
           <Link
+            href="/profile"
+            className="rounded-control px-3 py-2 text-ghost-muted transition-colors hover:text-ghost-text"
+          >
+            Profile
+          </Link>
+          <Link
             href="/leagues"
             className="rounded-control px-3 py-2 text-ghost-muted transition-colors hover:text-ghost-text"
           >

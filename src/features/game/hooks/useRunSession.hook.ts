@@ -15,6 +15,8 @@ export type TRunResult = {
   valid: boolean
   runId: string
   outcome: string | null
+  isPersonalBest: boolean
+  xpAwarded: number
 }
 
 type TLogInput = Omit<Extract<GameInputEvent, { type: 'tap' }>, 't'> | Omit<Extract<GameInputEvent, { type: 'choice' }>, 't'> | Omit<Extract<GameInputEvent, { type: 'pointer_down' | 'pointer_move' | 'pointer_up' }>, 't'>
@@ -65,7 +67,9 @@ export function useRunSession(game: TPublicGame, token: string) {
           score: data.run.validatedScore,
           valid: data.run.valid,
           runId: String(data.run.id),
-          outcome: data.outcome
+          outcome: data.outcome,
+          isPersonalBest: data.progression?.isPersonalBest ?? false,
+          xpAwarded: data.progression?.xpAwarded ?? 0
         })
         setPhase('result')
         if (data.run.valid && data.run.validatedScore > 0) audio.win()

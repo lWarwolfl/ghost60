@@ -2,9 +2,11 @@ import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/drizzle'
-import { Challenge, Run } from '@/drizzle/schema'
+import { Challenge, Run, XpLedger } from '@/drizzle/schema'
 import { getCurrentUser } from '@/lib/auth/server'
 import { generateSlug } from '@/lib/game/slug'
+import { utcDayString } from '@/lib/game/daily'
+import { XP } from '@/lib/game/progression'
 
 const CreateSchema = z.object({ runId: z.string().uuid() })
 
@@ -39,6 +41,16 @@ export async function POST(req: Request) {
         })
         .returning()
       const challenge = inserted[0]
+      await db
+        .insert(XpLedger)
+        .values({
+          userId: user.id,
+          sourceKey: `share:${user.id}:${utcDayString()}`,
+          amount: XP.SHARE_FIRST_PER_DAY,
+          reason: 'challenge_share'
+        })
+        .onConflictDoNothing({ target: XpLedger.sourceKey })
+        .catch(() => undefined)
       return NextResponse.json({
         id: challenge.id,
         slug: challenge.publicSlug,
