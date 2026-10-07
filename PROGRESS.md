@@ -15,7 +15,7 @@ Source of truth for product behavior stays in the docs folder (`ai-generated-jun
 - [ ] Phase 8 — Remaining engines (ORBIT → RECALL → SHIFT → TRACE, one at a time)
 - [ ] Phase 9 — Content (30-day schedule import + validators + simulations)
 - [ ] Phase 10 — Ghost+ LOCKED, no Stripe (`requireGhostPlus()` deny-by-default, locked UI)
-- [x] Phase 11.5 — PWA installable + Bubblewrap/TWA readiness (icons, manifest, SW, metadata)
+- [x] Phase 11.5 — PWA installable + Bubblewrap/TWA readiness (icons, manifest, SW, metadata, `/settings` update + cache-clear page)
 - [ ] Phase 11 — Media (ImageKit upload-auth only if uploads launch)
 - [ ] Phase 12 — Safety/privacy (deletion, disable, block/report, rate limits, legal, a11y settings)
 - [ ] Phase 13 — Analytics (first-party `product_events`, funnel notes, no vendor SDK)

@@ -1,6 +1,10 @@
 const VERSION = 'ghost60-v1'
 const APP_SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png']
 
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting()
+})
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
