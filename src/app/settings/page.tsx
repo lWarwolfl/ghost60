@@ -1,4 +1,5 @@
 import { SettingsClient } from '@/app/settings/page.client'
+import { PrefsClient } from '@/app/settings/prefs.client'
 import { Footer } from '@/components/layout/footer'
 import { Header } from '@/components/layout/header'
 
@@ -12,6 +13,7 @@ export default function SettingsPage() {
           <h1 className="font-display text-3xl font-800">App & updates</h1>
         </div>
         <SettingsClient />
+        <PrefsClient />
       </main>
       <Footer />
     </div>

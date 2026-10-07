@@ -8,7 +8,7 @@ Source of truth for product behavior stays in the docs folder (`ai-generated-jun
 - [x] Phase 1 — DB + auth (22 tables migrated to Neon, Better Auth anonymous + Google, transactional anonymous→Google link migration, profile bootstrap, guest session verified live)
 - [x] Phase 2 — Deterministic core (mulberry32 PRNG, event validator, runtime state machine, pure-TS SHA-256 digest, all six engine scorers + sanitizeGhost + simulate, 18 unit tests green)
 - [x] Phase 3 — Ranked lifecycle (HMAC session token, session/consume/submit routes, consumed-at rule, technical retry, Ghost+ mode gates, challenge outcome; streak/XP/achievements deferred to Phase 6, ranked+challenge dual-satisfaction deferred to Phase 5)
-- [ ] Phase 4 — PULSE + SNAP slice (Claude-designed UI, Canvas 2D, audio, reduced motion, offline buffer)
+- [x] Phase 4 — PULSE + SNAP slice (Canvas 2D runners, countdown state machine, WebAudio cues, motion/sound prefs in `/settings`, IndexedDB offline buffer with retry, preflight + run + result screens, headless-Chromium full-run E2E green)
 - [ ] Phase 5 — Viral loop (result → challenge → recipient race → revenge, share + OG)
 - [ ] Phase 6 — Progression (streak, XP ledger, levels, achievements, profile history)
 - [ ] Phase 7 — Leagues (invite slug, best-5-of-7 NORMALIZED standings)
@@ -38,3 +38,5 @@ Source of truth for product behavior stays in the docs folder (`ai-generated-jun
 - `account` table: added nullable `issuer` (better-auth account model field).
 - `auth` config declares `user.additionalFields.role` (maps the pack's `role` column).
 - React/Next float to latest stable per Hermes upgrade policy (16.4.0 / 19.3.0 at scaffold).
+- Auth client uses same-origin (`window.location.origin`) instead of hardcoded `localhost:3000`, so dev ports and preview deploys work.
+- E2E runs against `http://localhost:3104` (see `playwright.config.ts`); start dev with `npm run dev -- -p 3104` before `npm run test:e2e`.
