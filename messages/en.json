@@ -1,0 +1,11 @@
+{
+  "global": {
+    "zod-errors": {
+      "required": "Required",
+      "invalid-email": "Enter a valid email"
+    }
+  },
+  "home": {
+    "hero": "ONE MINUTE. ONE RUN."
+  }
+}

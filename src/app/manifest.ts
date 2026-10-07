@@ -1,0 +1,22 @@
+import type { MetadataRoute } from 'next'
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: 'Ghost60 — One minute. One run.',
+    short_name: 'Ghost60',
+    description:
+      'Everyone gets the same game. You get one ranked attempt. Leave a ghost. Send it to a friend.',
+    start_url: '/',
+    scope: '/',
+    display: 'standalone',
+    orientation: 'portrait',
+    background_color: '#070912',
+    theme_color: '#070912',
+    categories: ['games', 'entertainment'],
+    icons: [
+      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+    ]
+  }
+}

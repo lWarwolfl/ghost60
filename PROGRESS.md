@@ -1,0 +1,40 @@
+# Ghost60 — Progress tracker (working implementation status)
+
+Source of truth for product behavior stays in the docs folder (`ai-generated-junk/ghost60/agent-pack/`). This file tracks what is DONE in code.
+
+## Milestones
+
+- [x] Phase 0 — Scaffold (Next 16.4.0, React 19.3.0, TS 5, Tailwind v4, baseline deps, folders, `npm run build` + eslint + `drizzle-kit check` green)
+- [x] Phase 1 — DB + auth (22 tables migrated to Neon, Better Auth anonymous + Google, transactional anonymous→Google link migration, profile bootstrap, guest session verified live)
+- [x] Phase 2 — Deterministic core (mulberry32 PRNG, event validator, runtime state machine, pure-TS SHA-256 digest, all six engine scorers + sanitizeGhost + simulate, 18 unit tests green)
+- [ ] Phase 3 — Ranked lifecycle (session create/submit, HMAC token, consumed-at rule, DB uniqueness)
+- [ ] Phase 4 — PULSE + SNAP slice (Claude-designed UI, Canvas 2D, audio, reduced motion, offline buffer)
+- [ ] Phase 5 — Viral loop (result → challenge → recipient race → revenge, share + OG)
+- [ ] Phase 6 — Progression (streak, XP ledger, levels, achievements, profile history)
+- [ ] Phase 7 — Leagues (invite slug, best-5-of-7 NORMALIZED standings)
+- [ ] Phase 8 — Remaining engines (ORBIT → RECALL → SHIFT → TRACE, one at a time)
+- [ ] Phase 9 — Content (30-day schedule import + validators + simulations)
+- [ ] Phase 10 — Ghost+ LOCKED, no Stripe (`requireGhostPlus()` deny-by-default, locked UI)
+- [x] Phase 11.5 — PWA installable + Bubblewrap/TWA readiness (icons, manifest, SW, metadata)
+- [ ] Phase 11 — Media (ImageKit upload-auth only if uploads launch)
+- [ ] Phase 12 — Safety/privacy (deletion, disable, block/report, rate limits, legal, a11y settings)
+- [ ] Phase 13 — Analytics (first-party `product_events`, funnel notes, no vendor SDK)
+- [ ] Phase 14 — Release QA (bundle, CPU, E2E matrix, anti-cheat fuzz, SEO, OAuth, backup)
+- [ ] Phase 15 — Launch (seed schedule, launch league, rollover, monitoring)
+- [ ] Phase 16 — Play Store via Bubblewrap (needs production domain + signing key; see checklist)
+
+## Bubblewrap / TWA launch checklist (deferred to deploy time)
+
+- [ ] Production HTTPS domain (installability + TWA requirement)
+- [ ] Generate Android signing key (`bubblewrap init --manifest https://<domain>/manifest.webmanifest`)
+- [ ] `/.well-known/assetlinks.json` serving Play package SHA-256 fingerprint
+- [ ] Verify `start_url`, `display: standalone`, 512px + maskable icons pass Lighthouse PWA audit
+- [ ] Play listing assets (feature graphic, screenshots at 320/375/390/430px)
+
+## Deviations from `agent-pack` (deliberate, pack invariant wins on conflict)
+
+- `user` table: added `isAnonymous` (anonymous plugin requirement).
+- `session` table: added nullable `ipAddress`, `userAgent` (better-auth 1.7.2 requires the columns to exist).
+- `account` table: added nullable `issuer` (better-auth account model field).
+- `auth` config declares `user.additionalFields.role` (maps the pack's `role` column).
+- React/Next float to latest stable per Hermes upgrade policy (16.4.0 / 19.3.0 at scaffold).
