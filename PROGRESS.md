@@ -23,6 +23,12 @@ Source of truth for product behavior stays in the docs folder (`ai-generated-jun
 - [ ] Phase 15 — Launch (seed schedule, launch league, rollover, monitoring)
 - [ ] Phase 16 — Play Store via Bubblewrap (needs production domain + signing key; see checklist)
 
+## Assets
+
+- Needed/generated raster list (GPT Plus jobs, specs + prompts): `agent-pack/docs/ASSET_REQUESTS.md` in the docs folder.
+- Awaiting from owner: default OG image, Twitter image, Play feature graphic (optional: hero texture, static share fallbacks).
+- Code will consume them as: `src/app/opengraph-image.png`, `src/app/twitter-image.png`, ImageKit `/ghost60` folder, Phase 16 release folder.
+
 ## Bubblewrap / TWA launch checklist (deferred to deploy time)
 
 - [ ] Production HTTPS domain (installability + TWA requirement)
