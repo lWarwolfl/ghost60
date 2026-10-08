@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { TRunSession } from '@/features/game/hooks/useRunSession.hook'
 import type { TPublicGame } from '@/features/game/store/game-store'
 import { audio } from '@/lib/game/audio'
@@ -28,8 +28,15 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
   const [score, setScore] = useState(0)
-  const config = pulseEngine.validateConfig(game.config) as TPulseConfig
-  const pulses = [...config.pulses].sort((a, b) => a.targetMs - b.targetMs)
+  const config = useMemo(
+    () => pulseEngine.validateConfig(game.config) as TPulseConfig,
+    [game.config]
+  )
+  const pulses = useMemo(
+    () => [...config.pulses].sort((a, b) => a.targetMs - b.targetMs),
+    [config]
+  )
+  const durationMs = game.durationMs
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -70,11 +77,13 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
         const rr = done
           ? r * (1 + 0.15 * Math.min(1, (elapsed - pulse.targetMs) / 300))
           : r * (1 + 0.9 * (1 - p))
-        ctx2d.strokeStyle = `rgba(169,139,255,${alpha.toFixed(3)})`
+        ctx2d.strokeStyle = '#a98bff'
+        ctx2d.globalAlpha = alpha
         ctx2d.lineWidth = lw * 1.4
         ctx2d.beginPath()
         ctx2d.arc(cx, cy, rr, 0, Math.PI * 2)
         ctx2d.stroke()
+        ctx2d.globalAlpha = 1
       }
       const taps = session.eventsRef.current
       const used = new Array(taps.length).fill(false)
@@ -104,7 +113,7 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
         ctx2d.globalAlpha = 1
       }
       if (timeRef.current) {
-        const left = Math.max(0, game.durationMs - elapsed)
+        const left = Math.max(0, durationMs - elapsed)
         timeRef.current.textContent = `${(left / 1000).toFixed(1)}s`
       }
       raf = requestAnimationFrame(draw)
@@ -114,7 +123,7 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
       cancelAnimationFrame(raf)
       ro.disconnect()
     }
-  }, [game.durationMs, pulses, session])
+  }, [durationMs, pulses, session])
 
   const tap = (clientX?: number, clientY?: number) => {
     if (session.phase !== 'running') return

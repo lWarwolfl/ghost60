@@ -23,6 +23,7 @@ Source of truth for product behavior stays in the docs folder (`ai-generated-jun
 - [ ] Phase 15 — Launch (seed schedule, launch league, rollover, monitoring)
 - [ ] Phase 16 — Play Store via Bubblewrap (needs production domain + signing key; see checklist)
 - [ ] Deferred — Email flows (plan: pack `docs/EMAIL_FLOWS.md`; Gmail SMTP + Ghost60 template mirroring perfectest-cv; no-spec-change flows vs proposed invite/reminder flows)
+- [x] Client-first game shell on App Router (owner chose over Page Router migration; see `docs/PAGE_ROUTER_MIGRATION.md` — stable draw loops, code-split runners, prefetched run route, instant preflight; submit/session unchanged)
 
 ## Assets
 

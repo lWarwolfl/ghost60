@@ -4,6 +4,7 @@ import { Ghost60Mark } from '@/components/brand/ghost60-mark'
 import { GhostAvatar } from '@/components/brand/ghost-avatar'
 import { StreakWisp } from '@/components/brand/streak-wisp'
 import { ResetCountdown } from '@/components/game/reset-countdown'
+import { PrefetchGame } from '@/components/game/prefetch-game'
 import { Footer } from '@/components/layout/footer'
 import { Header } from '@/components/layout/header'
 
@@ -47,6 +48,7 @@ export function HomeClient() {
             </p>
           </div>
           <div className="flex flex-col gap-3">
+            <PrefetchGame />
             <Link
               href="/play"
               className="flex min-h-12 items-center justify-center rounded-control bg-spectral-cyan px-5 font-display text-sm font-800 tracking-[0.14em] text-ink-950 transition-transform active:scale-[0.99]"

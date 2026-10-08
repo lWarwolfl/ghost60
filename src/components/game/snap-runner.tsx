@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TRunSession } from '@/features/game/hooks/useRunSession.hook'
 import type { TPublicGame } from '@/features/game/store/game-store'
 import { audio } from '@/lib/game/audio'
@@ -91,7 +91,21 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
   const labelRef = useRef('')
   const [score, setScore] = useState(0)
   const [roundLabel, setRoundLabel] = useState('')
-  const config = snapEngine.validateConfig(game.config) as TSnapConfig
+  const config = useMemo(() => snapEngine.validateConfig(game.config) as TSnapConfig, [game.config])
+  const durationMs = game.durationMs
+  const layoutCache = useRef(new Map<string, { target: TShape; cells: TOption[] }>())
+  const getLayout = useCallback(
+    (roundIndex: number, options: number, correct: number, w: number, h: number) => {
+      const key = `${roundIndex}:${Math.round(w)}x${Math.round(h)}`
+      const hit = layoutCache.current.get(key)
+      if (hit) return hit
+      const fresh = layoutRound(game.seed, roundIndex, options, correct, w, h)
+      if (layoutCache.current.size > 24) layoutCache.current.clear()
+      layoutCache.current.set(key, fresh)
+      return fresh
+    },
+    [game.seed]
+  )
 
   const setLabel = (v: string) => {
     if (labelRef.current !== v) {
@@ -126,7 +140,7 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
       const idx = session.eventsRef.current.length
       const round = config.rounds[idx]
       if (round && elapsed >= round.presentedMs) {
-        const { target, cells } = layoutRound(game.seed, idx, round.options, round.correct, cssW, cssH)
+        const { target, cells } = getLayout(idx, round.options, round.correct, cssW, cssH)
         setLabel(`TAP THE ${target.toUpperCase()}`)
         const v = verdictRef.current
         for (let i = 0; i < cells.length; i += 1) {
@@ -153,7 +167,7 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
         const late = round !== undefined && elapsed > round.presentedMs + round.windowMs
         if (late) timeRef.current.textContent = 'too late'
         else {
-          const left = Math.max(0, game.durationMs - elapsed)
+          const left = Math.max(0, durationMs - elapsed)
           timeRef.current.textContent = `${(left / 1000).toFixed(1)}s`
         }
       }
@@ -164,7 +178,7 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
       cancelAnimationFrame(raf)
       ro.disconnect()
     }
-  }, [config, game.durationMs, game.seed, session])
+  }, [config, durationMs, getLayout, session])
 
   const choose = (index: number) => {
     if (session.phase !== 'running') return

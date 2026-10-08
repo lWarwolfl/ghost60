@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { GameIcon } from '@/components/brand/game-icon'
 import { Footer } from '@/components/layout/footer'
 import { Header } from '@/components/layout/header'
@@ -18,6 +18,10 @@ export function PreflightClient() {
   const create = useCreateSession()
   const setSnapshot = useGameStore((s) => s.setSnapshot)
   const [failed, setFailed] = useState<string | null>(null)
+
+  useEffect(() => {
+    router.prefetch('/play/run')
+  }, [router])
 
   const play = async () => {
     setFailed(null)

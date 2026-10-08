@@ -1,16 +1,24 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { PulseRunner } from '@/components/game/pulse-runner'
-import { SnapRunner } from '@/components/game/snap-runner'
 import { ShareButtons } from '@/components/results/share-buttons'
 import { useCreateChallenge } from '@/features/game/mutations/useCreateChallenge.mutation'
 import { useRunSession, type TRunResult } from '@/features/game/hooks/useRunSession.hook'
 import { useGameStore, loadSnapshotFromStorage, type TGameSnapshot } from '@/features/game/store/game-store'
 import type { GameInputEvent } from '@/games/core/game-module'
 import { getGame } from '@/games/registry'
+
+const PulseRunner = dynamic(() => import('@/components/game/pulse-runner').then((m) => m.PulseRunner), {
+  ssr: false,
+  loading: () => <p className="py-8 text-center text-sm text-ghost-muted">Warming up the field…</p>
+})
+const SnapRunner = dynamic(() => import('@/components/game/snap-runner').then((m) => m.SnapRunner), {
+  ssr: false,
+  loading: () => <p className="py-8 text-center text-sm text-ghost-muted">Shuffling shapes…</p>
+})
 
 function CountOverlay({ count, reduced }: { count: number; reduced: boolean }) {
   return (

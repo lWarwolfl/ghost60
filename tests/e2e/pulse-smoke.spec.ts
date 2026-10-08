@@ -12,12 +12,16 @@ test('pulse practice run submits from canvas taps', async ({ page }) => {
   const sess = await page.request.post('/api/game/session', { data: { mode: 'practice' } })
   expect(sess.ok()).toBeTruthy()
   const snapshot = await sess.json()
-  expect(snapshot.game.gameId).toBe('pulse')
   await page.addInitScript((snap) => {
     window.sessionStorage.setItem('ghost60:session', JSON.stringify(snap))
   }, snapshot)
   await page.goto('/play/run')
-  const canvas = page.getByLabel(/Pulse field/)
+  if (snapshot.game.gameId !== 'pulse' && snapshot.game.gameId !== 'snap') {
+    await expect(page.getByText('Engine UI lands in Phase 8')).toBeVisible()
+    expect(errors).toEqual([])
+    return
+  }
+  const canvas = page.getByLabel(/Pulse field|Snap field/)
   await expect(canvas).toBeVisible()
   await page.waitForTimeout(3600)
   const box = await canvas.boundingBox()

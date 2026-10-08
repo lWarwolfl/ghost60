@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSubmitRun } from '@/features/game/mutations/useSubmitRun.mutation'
 import type { TPublicGame } from '@/features/game/store/game-store'
 import { audio } from '@/lib/game/audio'
@@ -153,7 +153,10 @@ export function useRunSession(game: TPublicGame, token: string) {
     await doSubmit(pending.events, pending.visibilityInterruptions)
   }, [doSubmit, token])
 
-  return { phase, count, result, error, eventsRef, logEvent, getElapsed, retryPending, reduced }
+  return useMemo(
+    () => ({ phase, count, result, error, eventsRef, logEvent, getElapsed, retryPending, reduced }),
+    [phase, count, result, error, logEvent, getElapsed, retryPending, reduced]
+  )
 }
 
 export type TRunSession = ReturnType<typeof useRunSession>
