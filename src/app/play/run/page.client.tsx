@@ -27,6 +27,7 @@ const RecallRunner = dynamic(() => import('@/components/game/recall-runner').the
   ssr: false,
   loading: () => <p className="py-8 text-center text-sm text-ghost-muted">Dealing the grid…</p>
 })
+const ShiftRunner = dynamic(() => import('@/components/game/shift-runner').then((m) => m.ShiftRunner))
 
 function CountOverlay({ count, reduced }: { count: number; reduced: boolean }) {
   return (
@@ -215,7 +216,7 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
       </div>
     )
   }
-  if (!['pulse', 'snap', 'orbit', 'recall'].includes(snapshot.game.gameId)) {
+  if (!['pulse', 'snap', 'orbit', 'recall', 'shift'].includes(snapshot.game.gameId)) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
         <p className="font-display text-xl font-800">Engine UI lands in Phase 8</p>
@@ -248,8 +249,14 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
           session={session}
           rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
         />
-      ) : (
+      ) : snapshot.game.gameId === 'recall' ? (
         <RecallRunner
+          game={snapshot.game}
+          session={session}
+          rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
+        />
+      ) : (
+        <ShiftRunner
           game={snapshot.game}
           session={session}
           rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}

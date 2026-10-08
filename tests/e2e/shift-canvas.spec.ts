@@ -3,9 +3,9 @@ import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import postgres from 'postgres'
-import { recallEngine } from '@/games/recall/engine'
+import { shiftEngine } from '@/games/shift/engine'
 
-const GAME_DATE = '2020-02-03'
+const GAME_DATE = '2020-02-04'
 
 function dbUrl() {
   const raw = fs.readFileSync(path.join(process.cwd(), '.env'), 'utf8')
@@ -14,7 +14,9 @@ function dbUrl() {
   return line.slice('DATABASE_URL='.length).trim().replace(/^["']|["']$/g, '')
 }
 
-test('recall canvas: seeded challenge race plays end-to-end', async ({ browser }) => {
+const CORRECT = [0, 1, 0, 1, 0, 1] as const
+
+test('shift canvas: seeded challenge race plays end-to-end', async ({ browser }) => {
   const sql = postgres(dbUrl(), { prepare: false })
   const createdUserIds: string[] = []
   const errors: string[] = []
@@ -25,28 +27,23 @@ test('recall canvas: seeded challenge race plays end-to-end', async ({ browser }
     await sql`delete from run_sessions where daily_game_id in (select id from daily_games where game_date = ${GAME_DATE})`
     await sql`delete from daily_games where game_date = ${GAME_DATE}`
 
-    const config = recallEngine.validateConfig({
-      grid: 3,
-      sequences: [
-        { cells: [0, 1, 2], parMs: 6000 },
-        { cells: [4, 5], parMs: 5000 }
-      ]
+    const config = shiftEngine.validateConfig({
+      cards: CORRECT.map((correct, i) => ({
+        correct,
+        presentedMs: 3000 + i * 4000,
+        windowMs: 2500
+      }))
     })
     const [seeded] = await sql`insert into daily_games
       (game_date, game_id, engine_version, seed, config, title, instruction, share_subtitle, difficulty, status, publish_at)
-      values (${GAME_DATE}, 'recall', 1, 'e2e-recall', ${JSON.stringify(config)}::jsonb, 'E2E RECALL', 'Watch, then repeat the sequence.', 'e2e', 3, 'live', now())
+      values (${GAME_DATE}, 'shift', 1, 'e2e-shift', ${JSON.stringify(config)}::jsonb, 'E2E SHIFT', 'Tap the arrow side. Every 5th card reverses.', 'e2e', 3, 'live', now())
       returning id`
     const dailyGameId = seeded.id as string
 
-    const events = [
-      { t: 4000, type: 'choice' as const, value: 0 },
-      { t: 4500, type: 'choice' as const, value: 1 },
-      { t: 5000, type: 'choice' as const, value: 2 },
-      { t: 7000, type: 'choice' as const, value: 4 },
-      { t: 7500, type: 'choice' as const, value: 5 }
-    ]
-    const scored = recallEngine.scoreRun({ seed: 'e2e-recall', config, events, visibilityInterruptions: 0 })
-    expect(scored).toMatchObject({ score: 2867, valid: true })
+    const events = CORRECT.map((value, i) => ({ t: 3200 + i * 4000, type: 'choice' as const, value }))
+    const scored = shiftEngine.scoreRun({ seed: 'e2e-shift', config, events, visibilityInterruptions: 0 })
+    expect(scored.valid).toBe(true)
+    expect(scored.score).toBeGreaterThan(0)
 
     const ownerCtx = await browser.newContext()
     const owner = await ownerCtx.newPage()
@@ -62,7 +59,7 @@ test('recall canvas: seeded challenge race plays end-to-end', async ({ browser }
     await sql`insert into run_sessions (id, user_id, daily_game_id, mode, state, token_hash, consumed_at, expires_at, metadata)
       values (${sessionId}, ${creatorId}, ${dailyGameId}, 'ranked', 'submitted', 'e2e', now(), now() + interval '1 hour', '{}'::jsonb)`
     await sql`insert into runs (id, session_id, user_id, daily_game_id, mode, raw_score, validated_score, score_version, event_stream, event_digest, duration_ms, valid)
-      values (${runId}, ${sessionId}, ${creatorId}, ${dailyGameId}, 'ranked', ${scored.score}, ${scored.score}, 1, ${JSON.stringify(events)}::jsonb, 'e2e-recall', 50000, true)`
+      values (${runId}, ${sessionId}, ${creatorId}, ${dailyGameId}, 'ranked', ${scored.score}, ${scored.score}, 1, ${JSON.stringify(events)}::jsonb, 'e2e-shift', 45000, true)`
     const ch = await owner.request.post('/api/challenges', { data: { runId } })
     expect(ch.ok()).toBeTruthy()
     const { slug } = await ch.json()
@@ -86,16 +83,10 @@ test('recall canvas: seeded challenge race plays end-to-end', async ({ browser }
     await page.waitForLoadState('networkidle')
     await expect(page.getByText('START RACE')).toBeVisible()
     await page.getByText('START RACE').click()
-    const canvas = page.getByLabel(/Recall grid/)
-    await expect(canvas).toBeVisible()
-    await page.waitForTimeout(4000)
-    for (const key of ['1', '2', '3']) {
-      await page.keyboard.press(key)
-      await page.waitForTimeout(300)
-    }
-    await page.waitForTimeout(1800)
-    for (const key of ['4', '5']) {
-      await page.keyboard.press(key)
+    await expect(page.getByLabel('Tap left')).toBeVisible()
+    for (let i = 0; i < CORRECT.length; i += 1) {
+      await expect(page.getByText(`CARD ${i + 1}/6 · GO`)).toBeVisible({ timeout: 30000 })
+      await page.getByLabel(CORRECT[i] === 0 ? 'Tap left' : 'Tap right').click()
       await page.waitForTimeout(300)
     }
     await expect(page.getByText(/IT GOT AWAY|YOU CAUGHT IT|DEAD HEAT/)).toBeVisible({ timeout: 90000 })
