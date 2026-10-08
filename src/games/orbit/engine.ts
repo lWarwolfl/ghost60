@@ -34,6 +34,23 @@ function angDist(a: number, b: number) {
   return d > 180 ? 360 - d : d
 }
 
+export function angleDistDeg(a: number, b: number) {
+  return angDist(a, b)
+}
+
+export type TOrbitTarget = z.output<typeof OrbitTargetSchema>
+
+export function orbitBand(d: number, target: TOrbitTarget) {
+  if (d <= target.perfectTolDeg) return 1000
+  if (d <= target.goodTolDeg) {
+    return 650 + Math.round(349 * (1 - (d - target.perfectTolDeg) / (target.goodTolDeg - target.perfectTolDeg)))
+  }
+  if (d <= target.edgeTolDeg) {
+    return 350 + Math.round(299 * (1 - (d - target.goodTolDeg) / (target.edgeTolDeg - target.goodTolDeg)))
+  }
+  return 0
+}
+
 export const orbitEngine: GameModule<TOrbitConfig> = {
   id: 'orbit',
   engineVersion: 1,
@@ -133,7 +150,8 @@ export const orbitEngine: GameModule<TOrbitConfig> = {
     return config.targets.map((target) => {
       const t = target.openMs + Math.round(rng.nextFloat() * (target.closeMs - target.openMs))
       const err = (rng.nextFloat() * 2 - 1) * (1 - skill) * target.edgeTolDeg * 1.5
-      return { t, type: 'tap', value: (target.angleDeg + err + 360) % 360 } satisfies GameInputEvent
+      const value = ((Math.round(target.angleDeg + err) % 360) + 360) % 360
+      return { t, type: 'tap', value } satisfies GameInputEvent
     })
   }
 }
