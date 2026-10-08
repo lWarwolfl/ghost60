@@ -23,6 +23,10 @@ const OrbitRunner = dynamic(() => import('@/components/game/orbit-runner').then(
   ssr: false,
   loading: () => <p className="py-8 text-center text-sm text-ghost-muted">Spinning up the ring…</p>
 })
+const RecallRunner = dynamic(() => import('@/components/game/recall-runner').then((m) => m.RecallRunner), {
+  ssr: false,
+  loading: () => <p className="py-8 text-center text-sm text-ghost-muted">Dealing the grid…</p>
+})
 
 function CountOverlay({ count, reduced }: { count: number; reduced: boolean }) {
   return (
@@ -211,7 +215,7 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
       </div>
     )
   }
-  if (snapshot.game.gameId !== 'pulse' && snapshot.game.gameId !== 'snap' && snapshot.game.gameId !== 'orbit') {
+  if (!['pulse', 'snap', 'orbit', 'recall'].includes(snapshot.game.gameId)) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
         <p className="font-display text-xl font-800">Engine UI lands in Phase 8</p>
@@ -238,8 +242,14 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
         <PulseRunner game={snapshot.game} session={session} />
       ) : snapshot.game.gameId === 'snap' ? (
         <SnapRunner game={snapshot.game} session={session} />
-      ) : (
+      ) : snapshot.game.gameId === 'orbit' ? (
         <OrbitRunner
+          game={snapshot.game}
+          session={session}
+          rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
+        />
+      ) : (
+        <RecallRunner
           game={snapshot.game}
           session={session}
           rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
