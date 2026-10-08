@@ -1,0 +1,474 @@
+{
+  "season": {
+    "slug": "signal-lost",
+    "name": "SIGNAL LOST",
+    "days": 30
+  },
+  "days": [
+    {
+      "day": 1,
+      "engine": "pulse",
+      "modifier": "classic",
+      "title": "FIRST SIGNAL",
+      "instruction": "Catch the ring at its peak.",
+      "shareSubtitle": "Leave a cleaner signal.",
+      "seedKey": "S0D01-PULSE",
+      "difficulty": 1,
+      "config": {
+        "pulseCount": 18,
+        "toleranceMs": 180,
+        "speedCurve": "flat"
+      }
+    },
+    {
+      "day": 2,
+      "engine": "snap",
+      "modifier": "shape-rule",
+      "title": "LOCK ON",
+      "instruction": "Tap the outlined target. Ignore the rest.",
+      "shareSubtitle": "How fast can your eyes lock on?",
+      "seedKey": "S0D02-SNAP",
+      "difficulty": 1,
+      "config": {
+        "rounds": 22,
+        "distractors": 4,
+        "rule": "outline"
+      }
+    },
+    {
+      "day": 3,
+      "engine": "orbit",
+      "modifier": "classic",
+      "title": "CLEAN ORBIT",
+      "instruction": "Lock inside every arc.",
+      "shareSubtitle": "Don’t chase it. Meet it.",
+      "seedKey": "S0D03-ORBIT",
+      "difficulty": 1,
+      "config": {
+        "targets": 18,
+        "rpm": 18,
+        "perfectArc": 0.18
+      }
+    },
+    {
+      "day": 4,
+      "engine": "recall",
+      "modifier": "3x3",
+      "title": "AFTERIMAGE",
+      "instruction": "Watch. Hold it. Repeat.",
+      "shareSubtitle": "How long does the signal stay?",
+      "seedKey": "S0D04-RECALL",
+      "difficulty": 1,
+      "config": {
+        "grid": 3,
+        "startLength": 3,
+        "maxLength": 7
+      }
+    },
+    {
+      "day": 5,
+      "engine": "shift",
+      "modifier": "shape",
+      "title": "SWITCHBOARD",
+      "instruction": "Follow the rule at the top.",
+      "shareSubtitle": "Think once. Move fast.",
+      "seedKey": "S0D05-SHIFT",
+      "difficulty": 1,
+      "config": {
+        "rounds": 24,
+        "ruleSet": "shape"
+      }
+    },
+    {
+      "day": 6,
+      "engine": "trace",
+      "modifier": "broad",
+      "title": "GHOST LINE",
+      "instruction": "Stay inside the trail.",
+      "shareSubtitle": "Can your hand hold the signal?",
+      "seedKey": "S0D06-TRACE",
+      "difficulty": 1,
+      "config": {
+        "corridor": 0.13,
+        "gates": 9,
+        "path": "wave"
+      }
+    },
+    {
+      "day": 7,
+      "engine": "pulse",
+      "modifier": "alternating-centers",
+      "title": "DOUBLE TAKE",
+      "instruction": "The signal moves. Your timing shouldn’t.",
+      "shareSubtitle": "Catch it wherever it appears.",
+      "seedKey": "S0D07-PULSE",
+      "difficulty": 2,
+      "config": {
+        "pulseCount": 20,
+        "toleranceMs": 170,
+        "centers": "alternate"
+      }
+    },
+    {
+      "day": 8,
+      "engine": "snap",
+      "modifier": "moving-decoys",
+      "title": "FALSE POSITIVE",
+      "instruction": "Targets move. The rule does not.",
+      "shareSubtitle": "Don’t tap the loudest thing.",
+      "seedKey": "S0D08-SNAP",
+      "difficulty": 2,
+      "config": {
+        "rounds": 24,
+        "distractors": 5,
+        "motion": "slow"
+      }
+    },
+    {
+      "day": 9,
+      "engine": "recall",
+      "modifier": "variable-length",
+      "title": "MEMORY LEAK",
+      "instruction": "Sequences don’t grow politely today.",
+      "shareSubtitle": "Hold the whole thing.",
+      "seedKey": "S0D09-RECALL",
+      "difficulty": 2,
+      "config": {
+        "grid": 3,
+        "lengthPattern": [
+          3,
+          5,
+          4,
+          6,
+          5,
+          7
+        ]
+      }
+    },
+    {
+      "day": 10,
+      "engine": "orbit",
+      "modifier": "speed-ramp",
+      "title": "SPIN UP",
+      "instruction": "Each orbit is a little faster.",
+      "shareSubtitle": "Lock before it runs away.",
+      "seedKey": "S0D10-ORBIT",
+      "difficulty": 2,
+      "config": {
+        "targets": 20,
+        "rpmStart": 16,
+        "rpmEnd": 25
+      }
+    },
+    {
+      "day": 11,
+      "engine": "shift",
+      "modifier": "periodic-swap",
+      "title": "RULE BREAKER",
+      "instruction": "The rule changes every six cards.",
+      "shareSubtitle": "Read the rule, not your habit.",
+      "seedKey": "S0D11-SHIFT",
+      "difficulty": 2,
+      "config": {
+        "rounds": 27,
+        "swapEvery": 6
+      }
+    },
+    {
+      "day": 12,
+      "engine": "trace",
+      "modifier": "wave",
+      "title": "WAVELENGTH",
+      "instruction": "Ride the curve. Don’t cut it.",
+      "shareSubtitle": "Smooth beats fast.",
+      "seedKey": "S0D12-TRACE",
+      "difficulty": 2,
+      "config": {
+        "corridor": 0.105,
+        "gates": 10,
+        "path": "sine"
+      }
+    },
+    {
+      "day": 13,
+      "engine": "pulse",
+      "modifier": "narrow",
+      "title": "THIN SIGNAL",
+      "instruction": "Smaller window. Same nerves.",
+      "shareSubtitle": "Precision over panic.",
+      "seedKey": "S0D13-PULSE",
+      "difficulty": 3,
+      "config": {
+        "pulseCount": 20,
+        "toleranceMs": 130,
+        "speedCurve": "flat"
+      }
+    },
+    {
+      "day": 14,
+      "engine": "snap",
+      "modifier": "burst",
+      "title": "BURST MODE",
+      "instruction": "Three fast rounds. One breath.",
+      "shareSubtitle": "Find it before the burst ends.",
+      "seedKey": "S0D14-SNAP",
+      "difficulty": 3,
+      "config": {
+        "bursts": 7,
+        "roundsPerBurst": 3,
+        "distractors": 5
+      }
+    },
+    {
+      "day": 15,
+      "engine": "orbit",
+      "modifier": "moving-arcs",
+      "title": "MOVING WINDOW",
+      "instruction": "The target moves with you.",
+      "shareSubtitle": "Meet the moving opening.",
+      "seedKey": "S0D15-ORBIT",
+      "difficulty": 3,
+      "config": {
+        "targets": 18,
+        "rpm": 21,
+        "arcMotion": "drift"
+      }
+    },
+    {
+      "day": 16,
+      "engine": "recall",
+      "modifier": "decoy-flash",
+      "title": "STATIC MEMORY",
+      "instruction": "One flash is noise.",
+      "shareSubtitle": "Remember the signal, ignore the static.",
+      "seedKey": "S0D16-RECALL",
+      "difficulty": 3,
+      "config": {
+        "grid": 4,
+        "startLength": 3,
+        "decoys": 1
+      }
+    },
+    {
+      "day": 17,
+      "engine": "shift",
+      "modifier": "fake-out",
+      "title": "MISDIRECTION",
+      "instruction": "Motion lies. The rule doesn’t.",
+      "shareSubtitle": "Read, decide, commit.",
+      "seedKey": "S0D17-SHIFT",
+      "difficulty": 3,
+      "config": {
+        "rounds": 26,
+        "fakeOut": true
+      }
+    },
+    {
+      "day": 18,
+      "engine": "trace",
+      "modifier": "narrow",
+      "title": "THIN ICE",
+      "instruction": "The path tightens.",
+      "shareSubtitle": "Small corrections. No panic.",
+      "seedKey": "S0D18-TRACE",
+      "difficulty": 3,
+      "config": {
+        "corridor": 0.085,
+        "gates": 11,
+        "path": "wave"
+      }
+    },
+    {
+      "day": 19,
+      "engine": "pulse",
+      "modifier": "accelerating",
+      "title": "HEARTBEAT",
+      "instruction": "Every pulse arrives sooner.",
+      "shareSubtitle": "Adapt without rushing.",
+      "seedKey": "S0D19-PULSE",
+      "difficulty": 3,
+      "config": {
+        "pulseCount": 22,
+        "toleranceMs": 145,
+        "speedCurve": "accelerating"
+      }
+    },
+    {
+      "day": 20,
+      "engine": "snap",
+      "modifier": "rule-swap",
+      "title": "IDENTITY SHIFT",
+      "instruction": "The valid target changes halfway.",
+      "shareSubtitle": "Don’t carry the old rule forward.",
+      "seedKey": "S0D20-SNAP",
+      "difficulty": 3,
+      "config": {
+        "rounds": 26,
+        "ruleSwapAt": 13,
+        "rules": [
+          "outline",
+          "striped"
+        ]
+      }
+    },
+    {
+      "day": 21,
+      "engine": "recall",
+      "modifier": "mirror",
+      "title": "MIRROR CACHE",
+      "instruction": "Replay the sequence mirrored.",
+      "shareSubtitle": "Store it, flip it, send it.",
+      "seedKey": "S0D21-RECALL",
+      "difficulty": 4,
+      "config": {
+        "grid": 4,
+        "startLength": 3,
+        "transform": "mirror-x"
+      }
+    },
+    {
+      "day": 22,
+      "engine": "orbit",
+      "modifier": "dual-direction",
+      "title": "BACKSPIN",
+      "instruction": "The orbit can reverse.",
+      "shareSubtitle": "Reset your timing instantly.",
+      "seedKey": "S0D22-ORBIT",
+      "difficulty": 4,
+      "config": {
+        "targets": 20,
+        "rpm": 22,
+        "directionChanges": 4
+      }
+    },
+    {
+      "day": 23,
+      "engine": "shift",
+      "modifier": "final-sprint",
+      "title": "OVERCLOCK",
+      "instruction": "The last ten seconds accelerate.",
+      "shareSubtitle": "Stay accurate under load.",
+      "seedKey": "S0D23-SHIFT",
+      "difficulty": 4,
+      "config": {
+        "rounds": 30,
+        "finalSpeedMultiplier": 1.35
+      }
+    },
+    {
+      "day": 24,
+      "engine": "trace",
+      "modifier": "knots",
+      "title": "INTERFERENCE",
+      "instruction": "The line folds back on itself.",
+      "shareSubtitle": "Look ahead, not at your finger.",
+      "seedKey": "S0D24-TRACE",
+      "difficulty": 4,
+      "config": {
+        "corridor": 0.09,
+        "gates": 12,
+        "path": "knots"
+      }
+    },
+    {
+      "day": 25,
+      "engine": "pulse",
+      "modifier": "double-pulse",
+      "title": "ECHO PULSE",
+      "instruction": "Some signals arrive in pairs.",
+      "shareSubtitle": "Don’t spend your timing on the first beat.",
+      "seedKey": "S0D25-PULSE",
+      "difficulty": 4,
+      "config": {
+        "pulseCount": 24,
+        "toleranceMs": 140,
+        "doubleChance": 0.35
+      }
+    },
+    {
+      "day": 26,
+      "engine": "snap",
+      "modifier": "shrinking-window",
+      "title": "LAST FRAME",
+      "instruction": "Targets don’t stay long.",
+      "shareSubtitle": "See it. Decide. Go.",
+      "seedKey": "S0D26-SNAP",
+      "difficulty": 4,
+      "config": {
+        "rounds": 28,
+        "windowMsStart": 1100,
+        "windowMsEnd": 650
+      }
+    },
+    {
+      "day": 27,
+      "engine": "orbit",
+      "modifier": "radius-shift",
+      "title": "GRAVITY DROP",
+      "instruction": "The ring changes radius.",
+      "shareSubtitle": "Timing survives geometry.",
+      "seedKey": "S0D27-ORBIT",
+      "difficulty": 4,
+      "config": {
+        "targets": 21,
+        "rpm": 22,
+        "radiusPattern": [
+          1,
+          0.84,
+          1.08
+        ]
+      }
+    },
+    {
+      "day": 28,
+      "engine": "recall",
+      "modifier": "tempo-ramp",
+      "title": "BUFFER FULL",
+      "instruction": "The sequence speeds up.",
+      "shareSubtitle": "Keep the picture, lose the rhythm.",
+      "seedKey": "S0D28-RECALL",
+      "difficulty": 4,
+      "config": {
+        "grid": 4,
+        "startLength": 4,
+        "flashMsStart": 520,
+        "flashMsEnd": 300
+      }
+    },
+    {
+      "day": 29,
+      "engine": "shift",
+      "modifier": "periodic-swap",
+      "title": "FINAL SWITCH",
+      "instruction": "Three rules. One minute mindset.",
+      "shareSubtitle": "The rule is the game.",
+      "seedKey": "S0D29-SHIFT",
+      "difficulty": 4,
+      "config": {
+        "rounds": 30,
+        "ruleCycle": [
+          "shape",
+          "fill",
+          "direction"
+        ],
+        "swapEvery": 5
+      }
+    },
+    {
+      "day": 30,
+      "engine": "trace",
+      "modifier": "moving-gates",
+      "title": "SIGNAL FOUND",
+      "instruction": "The gates move. The path remains.",
+      "shareSubtitle": "Finish the month inside the line.",
+      "seedKey": "S0D30-TRACE",
+      "difficulty": 4,
+      "config": {
+        "corridor": 0.09,
+        "gates": 12,
+        "path": "wave",
+        "movingGates": true
+      }
+    }
+  ]
+}

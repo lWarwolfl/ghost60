@@ -98,9 +98,14 @@ export const shiftEngine: GameModule<TShiftConfig> = {
     return { gameId: 'shift', engineVersion: 1, score, timeline } satisfies SanitizedGhost
   },
   simulate({ config, skill, rng }: { seed: string; config: TShiftConfig; skill: number; rng: SeededRng }) {
+    let prevT = -1
     return config.cards.map((card) => {
       const hit = rng.nextFloat() < skill
-      const t = card.presentedMs + Math.round(card.windowMs * (1 - skill) * rng.nextFloat())
+      const t = Math.max(
+        card.presentedMs + Math.round(card.windowMs * (1 - skill) * rng.nextFloat()),
+        prevT + 1
+      )
+      prevT = t
       return { t, type: 'choice', value: hit ? card.correct : 1 - card.correct } satisfies GameInputEvent
     })
   }

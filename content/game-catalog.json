@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "games": [
+    {
+      "id": "pulse",
+      "name": "PULSE",
+      "skill": "timing",
+      "durationMs": 45000,
+      "icon": "games/pulse.svg",
+      "instruction": "Tap when the ring enters the target band.",
+      "ghostPolicy": "rival cumulative score arc; rival hit marker only after local input",
+      "modifiers": [
+        "classic",
+        "narrow",
+        "accelerating",
+        "alternating-centers",
+        "double-pulse",
+        "drift"
+      ]
+    },
+    {
+      "id": "snap",
+      "name": "SNAP",
+      "skill": "reaction-selection",
+      "durationMs": 40000,
+      "icon": "games/snap.svg",
+      "instruction": "Tap the valid target. Ignore the decoys.",
+      "ghostPolicy": "rival progress; reveal rival choice only after local round resolves",
+      "modifiers": [
+        "shape-rule",
+        "fill-rule",
+        "moving-decoys",
+        "shrinking-window",
+        "burst",
+        "rule-swap"
+      ]
+    },
+    {
+      "id": "orbit",
+      "name": "ORBIT",
+      "skill": "timing-rhythm",
+      "durationMs": 45000,
+      "icon": "games/orbit.svg",
+      "instruction": "Lock the marker inside each target arc.",
+      "ghostPolicy": "rival lock notch appears only after local tap",
+      "modifiers": [
+        "classic",
+        "dual-direction",
+        "speed-ramp",
+        "moving-arcs",
+        "radius-shift"
+      ]
+    },
+    {
+      "id": "recall",
+      "name": "RECALL",
+      "skill": "visual-memory",
+      "durationMs": 50000,
+      "icon": "games/recall.svg",
+      "instruction": "Watch the sequence. Repeat it from memory.",
+      "ghostPolicy": "progress only until local answer; never leak cells",
+      "modifiers": [
+        "3x3",
+        "4x4",
+        "mirror",
+        "decoy-flash",
+        "tempo-ramp",
+        "variable-length"
+      ]
+    },
+    {
+      "id": "shift",
+      "name": "SHIFT",
+      "skill": "cognitive-control",
+      "durationMs": 45000,
+      "icon": "games/shift.svg",
+      "instruction": "Follow the current rule. Choose left or right.",
+      "ghostPolicy": "progress only; rival direction after local answer",
+      "modifiers": [
+        "shape",
+        "fill",
+        "periodic-swap",
+        "fake-out",
+        "final-sprint"
+      ]
+    },
+    {
+      "id": "trace",
+      "name": "TRACE",
+      "skill": "motor-precision",
+      "durationMs": 40000,
+      "icon": "games/trace.svg",
+      "instruction": "Stay inside the spectral path and clear every gate.",
+      "ghostPolicy": "500ms delayed translucent rival path",
+      "modifiers": [
+        "broad",
+        "narrow",
+        "wave",
+        "knots",
+        "moving-gates",
+        "split-lane"
+      ]
+    }
+  ]
+}

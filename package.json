@@ -13,6 +13,8 @@
     "db:check": "drizzle-kit check",
     "pwa:icons": "node scripts/gen-pwa-icons.mjs",
     "assets:upload": "node scripts/upload-campaign-assets.mjs",
+    "content:check": "tsx scripts/import-schedule.ts --check",
+    "content:import": "tsx scripts/import-schedule.ts",
     "test": "vitest run",
     "test:e2e": "playwright test"
   },

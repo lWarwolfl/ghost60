@@ -90,6 +90,7 @@ export const snapEngine: GameModule<TSnapConfig> = {
     return { gameId: 'snap', engineVersion: 1, score, timeline } satisfies SanitizedGhost
   },
   simulate({ config, skill, rng }: { seed: string; config: TSnapConfig; skill: number; rng: SeededRng }) {
+    let prevT = -1
     return config.rounds.map((round) => {
       const hit = rng.nextFloat() < skill
       let value = round.correct
@@ -97,7 +98,11 @@ export const snapEngine: GameModule<TSnapConfig> = {
         value = rng.nextInt(0, round.options - 1)
         if (value >= round.correct) value += 1
       }
-      const t = round.presentedMs + Math.round(round.windowMs * (1 - skill) * rng.nextFloat())
+      const t = Math.max(
+        round.presentedMs + Math.round(round.windowMs * (1 - skill) * rng.nextFloat()),
+        prevT + 1
+      )
+      prevT = t
       return { t, type: 'choice', value } satisfies GameInputEvent
     })
   }
