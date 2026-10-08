@@ -11,7 +11,7 @@ Source of truth for product behavior stays in the docs folder (`ai-generated-jun
 - [x] Phase 4 — PULSE + SNAP slice (Canvas 2D runners, countdown state machine, WebAudio cues, motion/sound prefs in `/settings`, IndexedDB offline buffer with retry, preflight + run + result screens, headless-Chromium full-run E2E green)
 - [x] Phase 5 — Viral loop (challenge create/disable API, public landing with expired states, dynamic OG cards + metadata, anonymous race flow, frozen win/loss/tie, revenge challenges, Web Share + copy fallback; ranked+challenge dual-satisfaction still deferred)
 - [x] Phase 6 — Progression (UTC-safe streaks + grace economy, idempotent XP ledger, level curve, 10 achievement unlocks, `/profile` with level/streak/7-day history; league XP + `league_signal` deferred to Phase 7)
-- [ ] Phase 7 — Leagues (invite slug, best-5-of-7 NORMALIZED standings)
+- [x] Phase 7 — Leagues (invite slug, create 1/join 3/size 12 caps server-enforced + Ghost+ 5/10, best-5-of-7 NORMALIZED percentile standings, sanitized invites, participation XP, owner transfer/archive; unit + live E2E join/leave/standings green)
 - [ ] Phase 8 — Remaining engines (ORBIT → RECALL → SHIFT → TRACE, one at a time)
 - [ ] Phase 9 — Content (30-day schedule import + validators + simulations)
 - [ ] Phase 10 — Ghost+ LOCKED, no Stripe (`requireGhostPlus()` deny-by-default, locked UI)
