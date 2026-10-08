@@ -87,7 +87,10 @@ export const traceEngine: GameModule<TTraceConfig> = {
     }
     const points = samples.map((e) => e.p)
     const avg = pathDeviation(points, config.gates)
-    const precision = Math.round(1200 * Math.min(1, Math.max(0, 1 - avg / config.corridorHalf)))
+    const precision =
+      samples.length === 0
+        ? 0
+        : Math.round(1200 * Math.min(1, Math.max(0, 1 - avg / config.corridorHalf)))
     const finished = expected === config.gates.length && events[events.length - 1]?.type === 'pointer_up'
     const total = expected * GATE_POINTS + precision + (finished ? config.completionBonus : 0)
     return {
