@@ -3,9 +3,10 @@ import { cn } from '@/lib/utils'
 type GhostAvatarProps = {
   motion?: 'idle' | 'none'
   className?: string
+  gradient?: [string, string]
 }
 
-export function GhostAvatar({ motion = 'idle', className }: GhostAvatarProps) {
+export function GhostAvatar({ motion = 'idle', className, gradient = ['#62F7E6', '#A98BFF'] }: GhostAvatarProps) {
   return (
     <svg
       viewBox="0 0 64 64"
@@ -16,8 +17,8 @@ export function GhostAvatar({ motion = 'idle', className }: GhostAvatarProps) {
     >
       <defs>
         <linearGradient id="ghost-avatar-g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#62F7E6" />
-          <stop offset="1" stopColor="#A98BFF" />
+          <stop offset="0" stopColor={gradient[0]} />
+          <stop offset="1" stopColor={gradient[1]} />
         </linearGradient>
       </defs>
       <path

@@ -6,7 +6,7 @@ import { Challenge, ChallengeAttempt, DailyGame, PlayerProfile, Run, RunSession,
 import { SessionRequestSchema } from '@/features/game/schemas/session.schema'
 import { getCurrentUser } from '@/lib/auth/server'
 import { getTodayDailyGame } from '@/lib/game/daily'
-import { isGhostPlus } from '@/lib/game/entitlement'
+import { isGhostPlus, lockedResponse, requireGhostPlus } from '@/lib/game/entitlement'
 import { hashToken, signSessionToken } from '@/lib/game/token'
 import { getGame } from '@/games/registry'
 
@@ -42,17 +42,16 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'bad-request' }, { status: 400 })
   const { mode, challengeId } = parsed.data
 
-  if (mode === 'past_self' && !(await isGhostPlus(user.id))) {
-    return NextResponse.json({ error: 'ghost-plus-locked' }, { status: 403 })
+  if (mode === 'past_self') {
+    const locked = await requireGhostPlus(user.id)
+    if (locked) return locked
   }
   if (mode === 'practice' && !(await isGhostPlus(user.id))) {
-    const dayStart = new Date()
-    dayStart.setUTCHours(0, 0, 0, 0)
     const used = await db
       .select({ id: Run.id })
       .from(Run)
       .where(and(eq(Run.userId, user.id), eq(Run.mode, 'practice')))
-    if (used.length >= 3) return NextResponse.json({ error: 'ghost-plus-locked' }, { status: 403 })
+    if (used.length >= 3) return lockedResponse()
   }
 
   let game: TDailyGame | null = null

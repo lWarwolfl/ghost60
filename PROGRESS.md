@@ -14,7 +14,7 @@ Source of truth for product behavior stays in the docs folder (`ai-generated-jun
 - [x] Phase 7 — Leagues (invite slug, create 1/join 3/size 12 caps server-enforced + Ghost+ 5/10, best-5-of-7 NORMALIZED percentile standings, sanitized invites, participation XP, owner transfer/archive; unit + live E2E join/leave/standings green)
 - [x] Phase 8 — Remaining engines (all six playable: ORBIT/RECALL/SHIFT/TRACE fixtures + sim distributions + runners + ghost-gated visuals + a11y, 85 unit green, live canvas E2Es green, build+eslint green)
 - [x] Phase 9 — Content (30-day SIGNAL LOST schedule: deterministic builder mapping pack modifiers onto engine schemas with cap clamps, rule validation, low/med/high sims with impossible/compression/outlier flags, `content:check` + `content:import` with skip-existing immutability; live import 2026-11-09..2026-12-08 verified + idempotent re-run)
-- [ ] Phase 10 — Ghost+ LOCKED, no Stripe (`requireGhostPlus()` deny-by-default, locked UI)
+- [x] Phase 10 — Ghost+ LOCKED, no Stripe (requireGhostPlus() deny-by-default on past-self/practice-cap/archive/history-depth/premium cosmetics; free archive 7-day + locked teasers; free skins equip with avatar preview, premium 403; locked upsell UI; unit + tamper E2E green, ranked untouched)
 - [x] Phase 11.5 — PWA installable + Bubblewrap/TWA readiness (icons, manifest, SW, metadata, `/settings` update + cache-clear page)
 - [ ] Phase 11 — Media (ImageKit upload-auth only if uploads launch)
 - [ ] Phase 12 — Safety/privacy (deletion, disable, block/report, rate limits, legal, a11y settings)

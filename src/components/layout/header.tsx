@@ -25,6 +25,12 @@ export function Header() {
             Leagues
           </Link>
           <Link
+            href="/archive"
+            className="rounded-control px-3 py-2 text-ghost-muted transition-colors hover:text-ghost-text"
+          >
+            Archive
+          </Link>
+          <Link
             href="/ghost-plus"
             className="rounded-control border border-spectral-violet/40 px-3 py-2 text-spectral-violet transition-colors hover:bg-spectral-violet/10"
           >

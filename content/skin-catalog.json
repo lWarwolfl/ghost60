@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "fairnessBounds": {
+    "rivalTrailWidthScale": [0.85, 1.15],
+    "rivalTrailOpacity": [0.22, 0.48],
+    "activeGameplayLifetimeMs": [180, 700],
+    "maxVisibleParticles": 20,
+    "noTargetLikeShapes": true,
+    "noGameplaySoundBySkin": true
+  },
+  "skins": [
+    {
+      "id": "clean-specter",
+      "name": "Clean Specter",
+      "entitlement": "free",
+      "trail": {"primary":"#62F7E6","secondary":"#A98BFF","widthScale":1.0,"opacity":0.38,"lifetimeMs":380,"particleRate":4,"blend":"lighter"},
+      "avatar": {"gradient":["#62F7E6","#A98BFF"],"rim":"#F5F7FF","effect":"clean"},
+      "resultCard": {"accent":"#62F7E6","backgroundEffect":"spectral-line"}
+    },
+    {
+      "id": "static",
+      "name": "Static",
+      "entitlement": "free",
+      "trail": {"primary":"#A98BFF","secondary":"#62F7E6","widthScale":0.95,"opacity":0.36,"lifetimeMs":300,"dash":[5,4],"particleRate":2,"blend":"source-over"},
+      "avatar": {"gradient":["#A98BFF","#62F7E6"],"rim":"#F5F7FF","effect":"static"},
+      "resultCard": {"accent":"#A98BFF","backgroundEffect":"micro-static"}
+    },
+    {
+      "id": "mono",
+      "name": "Mono",
+      "entitlement": "free",
+      "trail": {"primary":"#F5F7FF","secondary":"#9099AD","widthScale":1.0,"opacity":0.42,"lifetimeMs":330,"particleRate":0,"blend":"source-over"},
+      "avatar": {"gradient":["#F5F7FF","#9099AD"],"rim":"#F5F7FF","effect":"mono"},
+      "resultCard": {"accent":"#F5F7FF","backgroundEffect":"mono-lines"}
+    },
+    {
+      "id": "ultraviolet",
+      "name": "Ultraviolet",
+      "entitlement": "ghost_plus",
+      "trail": {"primary":"#A98BFF","secondary":"#FF66DB","widthScale":1.0,"opacity":0.4,"lifetimeMs":450,"particleRate":7,"blend":"lighter"},
+      "avatar": {"gradient":["#A98BFF","#FF66DB"],"rim":"#D9C8FF","effect":"ultraviolet"},
+      "resultCard": {"accent":"#A98BFF","backgroundEffect":"violet-ribbon"}
+    },
+    {
+      "id": "mint-signal",
+      "name": "Mint Signal",
+      "entitlement": "ghost_plus",
+      "trail": {"primary":"#62F7E6","secondary":"#C7FF5E","widthScale":0.96,"opacity":0.38,"lifetimeMs":390,"particleRate":8,"blend":"lighter"},
+      "avatar": {"gradient":["#62F7E6","#C7FF5E"],"rim":"#E5FFD0","effect":"mint"},
+      "resultCard": {"accent":"#C7FF5E","backgroundEffect":"digital-squares"}
+    },
+    {
+      "id": "heatwave",
+      "name": "Heatwave",
+      "entitlement": "ghost_plus",
+      "trail": {"primary":"#FF8A3D","secondary":"#FFD85C","widthScale":1.02,"opacity":0.34,"lifetimeMs":360,"particleRate":5,"blend":"lighter"},
+      "avatar": {"gradient":["#FF8A3D","#FFD85C"],"rim":"#FFF0B3","effect":"heatwave"},
+      "resultCard": {"accent":"#FFBE5C","backgroundEffect":"heat-ribbon"}
+    },
+    {
+      "id": "chromatic-split",
+      "name": "Chromatic Split",
+      "entitlement": "ghost_plus",
+      "trail": {"primary":"#F5F7FF","secondary":"#62F7E6","widthScale":0.92,"opacity":0.34,"lifetimeMs":300,"particleRate":2,"blend":"lighter"},
+      "avatar": {"gradient":["#62F7E6","#FF66DB"],"rim":"#F5F7FF","effect":"chromatic"},
+      "resultCard": {"accent":"#62F7E6","backgroundEffect":"rgb-split"}
+    },
+    {
+      "id": "long-exposure",
+      "name": "Long Exposure",
+      "entitlement": "ghost_plus",
+      "trail": {"primary":"#62F7E6","secondary":"#A98BFF","widthScale":1.08,"opacity":0.3,"lifetimeMs":650,"particleRate":3,"blend":"lighter"},
+      "avatar": {"gradient":["#62F7E6","#A98BFF"],"rim":"#D6FFFA","effect":"long-exposure"},
+      "resultCard": {"accent":"#A98BFF","backgroundEffect":"long-ribbon"}
+    },
+    {
+      "id": "scanline",
+      "name": "Scanline",
+      "entitlement": "ghost_plus",
+      "trail": {"primary":"#5BD6FF","secondary":"#487CFF","widthScale":0.96,"opacity":0.36,"lifetimeMs":340,"dash":[12,2],"particleRate":1,"blend":"source-over"},
+      "avatar": {"gradient":["#5BD6FF","#487CFF"],"rim":"#CDEFFF","effect":"scanline"},
+      "resultCard": {"accent":"#5BD6FF","backgroundEffect":"scanline"}
+    }
+  ]
+}

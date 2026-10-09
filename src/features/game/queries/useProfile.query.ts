@@ -6,6 +6,11 @@ export type TProfile = {
   streak: { currentCount: number; longestCount: number; graceTokens: number } | null
   xpTotal: number
   level: { level: number; intoLevel: number; need: number }
+  history: { locked: boolean; days: number }
+  cosmetics: {
+    equipped: { ghost: string | null; card: string | null }
+    catalog: Array<{ id: string; name: string; entitlement: string; gradient: [string, string] }>
+  }
   achievements: Array<{ achievementId: string; detail: { title: string; description: string } | null }>
   recentRuns: Array<{
     id: string

@@ -4,5 +4,6 @@ export const QUERY_KEYS = {
   RUNS: 'game-runs',
   CHALLENGES: 'game-challenges',
   PROFILE: 'game-profile',
-  LEAGUES: 'game-leagues'
+  LEAGUES: 'game-leagues',
+  ARCHIVE: 'game-archive'
 } as const
