@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { QUERY_KEYS } from '@/features/game/queries/keys'
+import { track } from '@/lib/analytics/track'
 
 export type TChallengeCreated = {
   id: string
@@ -25,6 +26,7 @@ export function useCreateChallenge() {
     mutationFn: createChallenge,
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: [QUERY_KEYS.CHALLENGES] })
+      track('challenge_created', {})
     },
     retry: 0
   })

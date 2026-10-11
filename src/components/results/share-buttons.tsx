@@ -1,16 +1,20 @@
 'use client'
 
 import { useState } from 'react'
+import { track } from '@/lib/analytics/track'
 
 export function ShareButtons({ url, title, text }: { url: string; title: string; text: string }) {
   const [copied, setCopied] = useState(false)
   const absolute = typeof window === 'undefined' ? url : new URL(url, window.location.origin).toString()
+
+  const shared = () => track('challenge_shared', {})
 
   const share = async () => {
     const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> }
     if (typeof nav.share === 'function') {
       try {
         await nav.share({ title, text, url: absolute })
+        shared()
         return
       } catch {
         return
@@ -18,6 +22,7 @@ export function ShareButtons({ url, title, text }: { url: string; title: string;
     }
     try {
       await navigator.clipboard.writeText(absolute)
+      shared()
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
     } catch {

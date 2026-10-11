@@ -1,4 +1,5 @@
 import { Footer } from '@/components/layout/footer'
+import { TrackView } from '@/components/analytics/track-view'
 import { Header } from '@/components/layout/header'
 
 const LOCKS = [
@@ -14,6 +15,7 @@ export default function GhostPlusPage() {
     <div className="flex min-h-dvh flex-col bg-ink-950 text-ghost-text">
       <Header />
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-8">
+        <TrackView name="paywall_viewed" props={{ surface: 'ghost-plus' }} />
         <p className="text-[11px] uppercase tracking-[0.18em] text-spectral-violet">Ghost+</p>
         <h1 className="font-display text-3xl font-800">TRAIN AGAINST YOUR PAST.</h1>
         <p className="text-sm leading-6 text-ghost-muted">

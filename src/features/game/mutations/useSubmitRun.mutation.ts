@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { GameInputEvent } from '@/games/core/game-module'
 import { QUERY_KEYS } from '@/features/game/queries/keys'
+import { track } from '@/lib/analytics/track'
 
 export type TSubmitPayload = {
   token: string
@@ -27,8 +28,12 @@ export function useSubmitRun() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: submitRun,
-    onSuccess: () => {
+    onSuccess: (data) => {
       void client.invalidateQueries({ queryKey: [QUERY_KEYS.RUNS] })
+      const personalBest = data.progression?.isPersonalBest ?? false
+      track('score_submitted', { valid: data.run.valid, personalBest })
+      if (data.run.valid) track('ranked_run_finished', { personalBest })
+      if (personalBest) track('personal_best', {})
     },
     retry: 0
   })

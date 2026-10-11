@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { QUERY_KEYS } from '@/features/game/queries/keys'
+import { track } from '@/lib/analytics/track'
 
 async function createLeague(name: string) {
   const res = await fetch('/api/leagues', {
@@ -18,6 +19,7 @@ export function useCreateLeague() {
     mutationFn: createLeague,
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: [QUERY_KEYS.LEAGUES] })
+      track('league_created', {})
     },
     retry: 0
   })
@@ -37,6 +39,7 @@ export function useJoinLeague(slug: string) {
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: [QUERY_KEYS.LEAGUES] })
       void client.invalidateQueries({ queryKey: [QUERY_KEYS.LEAGUES, slug] })
+      track('league_joined', {})
     },
     retry: 0
   })

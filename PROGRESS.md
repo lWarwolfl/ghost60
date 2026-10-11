@@ -18,7 +18,7 @@ Source of truth for product behavior stays in the docs folder (`ai-generated-jun
 - [x] Phase 11.5 — PWA installable + Bubblewrap/TWA readiness (icons, manifest, SW, metadata, `/settings` update + cache-clear page)
 - [x] Phase 11 — Media (no user uploads launched: no upload-auth route by decision, ImageKit private key server-only in the campaign script, fixed 5-PNG allowlist, no replay/SVG art to ImageKit; guardrail unit tests green)
 - [x] Phase 12 — Safety/privacy (transactional account deletion with FK-safe cascade incl. owned-challenge cleanup + league transfer/archive, block-by-handle/unblock, allowlisted reports with challenge/league UI entry points, DB-backed rate_limits with single-roundtrip upsert on session/submit/challenge/cosmetics/report/block/delete, privacy+terms pages with footer links; rate-limit unit + deletion/safety E2Es green)
-- [ ] Phase 13 — Analytics (first-party `product_events`, funnel notes, no vendor SDK)
+- [x] Phase 13 — Analytics (first-party `product_events` via batched `POST /api/events` with 28-name allowlist, ≤25/batch + 32KB + flat-scalar-prop caps, anonId SHA-256 hashed server-side, auth-required + per-user rate limit, no vendor SDK; funnel wiring across session/submit/challenge/league/share/landing/paywall; SQL notes for activation, challenge funnel, D1/D7, conversion in `docs/ANALYTICS.md`; validator unit + ingest/hash E2E + live client-flush E2E green)
 - [ ] Phase 14 — Release QA (bundle, CPU, E2E matrix, anti-cheat fuzz, SEO, OAuth, backup)
 - [ ] Phase 15 — Launch (seed schedule, launch league, rollover, monitoring)
 - [ ] Phase 16 — Play Store via Bubblewrap (needs production domain + signing key; see checklist)

@@ -11,6 +11,7 @@ export const RATE_LIMITS = {
   profileWrite: { limit: 10, windowMs: 3_600_000 },
   report: { limit: 10, windowMs: 3_600_000 },
   block: { limit: 20, windowMs: 3_600_000 },
+  events: { limit: 240, windowMs: 3_600_000 },
   accountDelete: { limit: 3, windowMs: 86_400_000 }
 } satisfies Record<string, TRateLimitRule>
 

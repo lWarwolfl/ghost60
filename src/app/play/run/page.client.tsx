@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ShareButtons } from '@/components/results/share-buttons'
+import { TrackView } from '@/components/analytics/track-view'
 import { useCreateChallenge } from '@/features/game/mutations/useCreateChallenge.mutation'
 import { useRunSession, type TRunResult } from '@/features/game/hooks/useRunSession.hook'
 import { useGameStore, loadSnapshotFromStorage, type TGameSnapshot } from '@/features/game/store/game-store'
@@ -64,6 +65,12 @@ function ResultPanel({ snapshot, events, result }: { snapshot: TGameSnapshot; ev
   const [display, setDisplay] = useState<number | null>(null)
   const { game, challenge } = snapshot
   const score = result.score
+  const viewProps = {
+    game: game.gameId,
+    outcome: result.outcome ?? 'none',
+    personalBest: result.isPersonalBest,
+    challenge: Boolean(challenge)
+  }
   const reduced =
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   let metricsLine = ''
@@ -113,6 +120,7 @@ function ResultPanel({ snapshot, events, result }: { snapshot: TGameSnapshot; ev
           : 'RUN REJECTED'
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center animate-reveal">
+      <TrackView name="result_viewed" props={viewProps} />
       {challenge ? (
         <>
           <p className="text-[11px] uppercase tracking-[0.18em] text-spectral-violet">

@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import { db } from '@/drizzle'
 import { Challenge, DailyGame, PlayerProfile, Run, type TChallenge } from '@/drizzle/schema'
 import { GameIcon } from '@/components/brand/game-icon'
+import { TrackView } from '@/components/analytics/track-view'
 import { Footer } from '@/components/layout/footer'
 import { Header } from '@/components/layout/header'
 import { ChallengeSafetyClient } from '@/app/challenge/[slug]/safety.client'
@@ -91,6 +92,7 @@ export default async function ChallengeLanding({ params }: { params: Promise<{ s
             <p className="text-center text-xs text-ghost-muted">
               No signup needed. Your run races the frozen score.
             </p>
+            <TrackView name="challenge_landing_viewed" props={{ slug, gone }} />
             {showSafety && <ChallengeSafetyClient handle={handle} slug={slug} />}
           </>
         )}

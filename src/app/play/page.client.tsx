@@ -4,11 +4,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { GameIcon } from '@/components/brand/game-icon'
+import { TrackView } from '@/components/analytics/track-view'
 import { Footer } from '@/components/layout/footer'
 import { Header } from '@/components/layout/header'
 import { useCreateSession } from '@/features/game/mutations/useCreateSession.mutation'
 import { useTodayGame } from '@/features/game/queries/useTodayGame.query'
 import { useGameStore } from '@/features/game/store/game-store'
+import { track } from '@/lib/analytics/track'
 import { audio } from '@/lib/game/audio'
 import { getErrorMessage } from '@/lib/utils'
 
@@ -26,6 +28,7 @@ export function PreflightClient() {
   const play = async () => {
     setFailed(null)
     audio.unlock()
+    track('play_cta_clicked', { game: today?.gameId ?? 'unknown' })
     try {
       const snapshot = await create.mutateAsync({ mode: 'ranked' })
       setSnapshot(snapshot)
@@ -47,6 +50,7 @@ export function PreflightClient() {
         )}
         {today && (
           <>
+            <TrackView name="daily_game_viewed" props={{ game: today.gameId }} />
             <p className="text-[11px] uppercase tracking-[0.18em] text-spectral-cyan">
               Preflight · {today.gameId} · {Math.round(today.durationMs / 1000)}s
             </p>
