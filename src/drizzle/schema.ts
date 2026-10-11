@@ -303,6 +303,17 @@ export const Report = pgTable('reports', {
 })
 export type TReport = typeof Report.$inferSelect
 
+export const RateLimit = pgTable(
+  'rate_limits',
+  {
+    key: text('key').notNull(),
+    windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+    count: integer('count').default(1).notNull()
+  },
+  (t) => [primaryKey({ columns: [t.key, t.windowStart] })]
+)
+export type TRateLimit = typeof RateLimit.$inferSelect
+
 export const ProductEvent = pgTable(
   'product_events',
   {

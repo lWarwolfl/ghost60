@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { db } from '@/drizzle'
 import { Challenge, Run, XpLedger } from '@/drizzle/schema'
 import { getCurrentUser } from '@/lib/auth/server'
+import { RATE_LIMITS, checkRateLimit, rateLimitedResponse } from '@/lib/game/rate-limit'
 import { generateSlug } from '@/lib/game/slug'
 import { utcDayString } from '@/lib/game/daily'
 import { XP } from '@/lib/game/progression'
@@ -13,6 +14,9 @@ const CreateSchema = z.object({ runId: z.string().uuid() })
 export async function POST(req: Request) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!(await checkRateLimit('challenge', user.id, RATE_LIMITS.challengeCreate))) {
+    return rateLimitedResponse()
+  }
   let body: unknown
   try {
     body = await req.json()

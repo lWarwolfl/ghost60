@@ -5,6 +5,7 @@ import { db } from '@/drizzle'
 import { PlayerProfile } from '@/drizzle/schema'
 import { getCurrentUser } from '@/lib/auth/server'
 import { getPlan } from '@/lib/game/entitlement'
+import { RATE_LIMITS, checkRateLimit, rateLimitedResponse } from '@/lib/game/rate-limit'
 import { canEquip, getSkin } from '@/lib/game/skins'
 
 const CosmeticsSchema = z.object({
@@ -23,6 +24,9 @@ export async function PATCH(req: Request) {
   }
   const parsed = CosmeticsSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: 'bad-request' }, { status: 400 })
+  if (!(await checkRateLimit('profile', user.id, RATE_LIMITS.profileWrite))) {
+    return rateLimitedResponse()
+  }
   const skin = getSkin(parsed.data.skinId)
   if (!skin) return NextResponse.json({ error: 'unknown-skin' }, { status: 404 })
   const plan = await getPlan(user.id)

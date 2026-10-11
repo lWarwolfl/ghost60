@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth/server'
 import { eventDigest } from '@/games/core/digest'
 import type { GameInputEvent } from '@/games/core/game-module'
 import { applyProgression } from '@/lib/game/progression'
+import { RATE_LIMITS, checkRateLimit, rateLimitedResponse } from '@/lib/game/rate-limit'
 import { verifySessionToken } from '@/lib/game/token'
 import { getGame } from '@/games/registry'
 
@@ -22,6 +23,9 @@ function isConflict(e: unknown) {
 export async function POST(req: Request) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!(await checkRateLimit('submit', user.id, RATE_LIMITS.submit))) {
+    return rateLimitedResponse()
+  }
   let body: unknown
   try {
     body = await req.json()

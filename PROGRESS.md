@@ -17,7 +17,7 @@ Source of truth for product behavior stays in the docs folder (`ai-generated-jun
 - [x] Phase 10 — Ghost+ LOCKED, no Stripe (requireGhostPlus() deny-by-default on past-self/practice-cap/archive/history-depth/premium cosmetics; free archive 7-day + locked teasers; free skins equip with avatar preview, premium 403; locked upsell UI; unit + tamper E2E green, ranked untouched)
 - [x] Phase 11.5 — PWA installable + Bubblewrap/TWA readiness (icons, manifest, SW, metadata, `/settings` update + cache-clear page)
 - [x] Phase 11 — Media (no user uploads launched: no upload-auth route by decision, ImageKit private key server-only in the campaign script, fixed 5-PNG allowlist, no replay/SVG art to ImageKit; guardrail unit tests green)
-- [ ] Phase 12 — Safety/privacy (deletion, disable, block/report, rate limits, legal, a11y settings)
+- [x] Phase 12 — Safety/privacy (transactional account deletion with FK-safe cascade incl. owned-challenge cleanup + league transfer/archive, block-by-handle/unblock, allowlisted reports with challenge/league UI entry points, DB-backed rate_limits with single-roundtrip upsert on session/submit/challenge/cosmetics/report/block/delete, privacy+terms pages with footer links; rate-limit unit + deletion/safety E2Es green)
 - [ ] Phase 13 — Analytics (first-party `product_events`, funnel notes, no vendor SDK)
 - [ ] Phase 14 — Release QA (bundle, CPU, E2E matrix, anti-cheat fuzz, SEO, OAuth, backup)
 - [ ] Phase 15 — Launch (seed schedule, launch league, rollover, monitoring)

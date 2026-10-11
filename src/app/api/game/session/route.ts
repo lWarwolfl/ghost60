@@ -7,6 +7,7 @@ import { SessionRequestSchema } from '@/features/game/schemas/session.schema'
 import { getCurrentUser } from '@/lib/auth/server'
 import { getTodayDailyGame } from '@/lib/game/daily'
 import { isGhostPlus, lockedResponse, requireGhostPlus } from '@/lib/game/entitlement'
+import { RATE_LIMITS, checkRateLimit, rateLimitedResponse } from '@/lib/game/rate-limit'
 import { hashToken, signSessionToken } from '@/lib/game/token'
 import { getGame } from '@/games/registry'
 
@@ -32,6 +33,9 @@ function publicGame(game: TDailyGame, config: unknown, durationMs: number) {
 export async function POST(req: Request) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!(await checkRateLimit('session', user.id, RATE_LIMITS.sessionCreate))) {
+    return rateLimitedResponse()
+  }
   let body: unknown
   try {
     body = await req.json()

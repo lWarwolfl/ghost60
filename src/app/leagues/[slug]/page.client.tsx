@@ -27,6 +27,7 @@ export function LeagueDetailClient({ slug }: { slug: string }) {
   const [name, setName] = useState('')
   const [confirmLeave, setConfirmLeave] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [reported, setReported] = useState(false)
 
   if (isLoading) return <p className="text-sm text-ghost-muted">Loading standings…</p>
   if (isError || !data) return <p className="text-sm text-rival-coral">League not found.</p>
@@ -35,6 +36,21 @@ export function LeagueDetailClient({ slug }: { slug: string }) {
     setError(null)
     try {
       await join.mutateAsync()
+    } catch (err) {
+      setError((err as Error).message)
+    }
+  }
+
+  const onReport = async () => {
+    setError(null)
+    try {
+      const res = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjectType: 'league', subjectKey: slug, reason: 'abuse' })
+      })
+      if (!res.ok) throw new Error('report-failed')
+      setReported(true)
     } catch (err) {
       setError((err as Error).message)
     }
@@ -205,6 +221,18 @@ export function LeagueDetailClient({ slug }: { slug: string }) {
           <Link href="/leagues" className="mt-2 block text-center text-xs text-ghost-muted">
             ← All leagues
           </Link>
+          {!data.isOwner &&
+            (reported ? (
+              <p className="mt-2 text-center text-xs text-ghost-muted">Reported. Thanks.</p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void onReport()}
+                className="mt-2 block w-full text-center text-xs text-ghost-muted underline"
+              >
+                Report this league
+              </button>
+            ))}
         </section>
       )}
 

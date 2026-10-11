@@ -1,4 +1,5 @@
 import { SettingsClient } from '@/app/settings/page.client'
+import { DangerZoneClient } from '@/app/settings/danger.client'
 import { PrefsClient } from '@/app/settings/prefs.client'
 import { Footer } from '@/components/layout/footer'
 import { Header } from '@/components/layout/header'
@@ -14,6 +15,15 @@ export default function SettingsPage() {
         </div>
         <SettingsClient />
         <PrefsClient />
+        <DangerZoneClient />
+        <p className="flex gap-4 text-xs">
+          <a href="/privacy" className="text-ghost-muted underline">
+            Privacy
+          </a>
+          <a href="/terms" className="text-ghost-muted underline">
+            Terms
+          </a>
+        </p>
       </main>
       <Footer />
     </div>

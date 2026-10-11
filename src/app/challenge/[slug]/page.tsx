@@ -7,6 +7,8 @@ import { Challenge, DailyGame, PlayerProfile, Run, type TChallenge } from '@/dri
 import { GameIcon } from '@/components/brand/game-icon'
 import { Footer } from '@/components/layout/footer'
 import { Header } from '@/components/layout/header'
+import { ChallengeSafetyClient } from '@/app/challenge/[slug]/safety.client'
+import { getCurrentUser } from '@/lib/auth/server'
 import type { GameId } from '@/games/core/game-module'
 
 export const dynamic = 'force-dynamic'
@@ -42,6 +44,8 @@ export default async function ChallengeLanding({ params }: { params: Promise<{ s
   if (!data) notFound()
   const { challenge, game, source, handle } = data
   const gone = isChallengeGone(challenge) || !game || !source
+  const viewer = await getCurrentUser()
+  const showSafety = !gone && viewer !== null && viewer.id !== challenge.creatorUserId
 
   return (
     <div className="flex min-h-dvh flex-col bg-ink-950 text-ghost-text">
@@ -87,6 +91,7 @@ export default async function ChallengeLanding({ params }: { params: Promise<{ s
             <p className="text-center text-xs text-ghost-muted">
               No signup needed. Your run races the frozen score.
             </p>
+            {showSafety && <ChallengeSafetyClient handle={handle} slug={slug} />}
           </>
         )}
       </main>
