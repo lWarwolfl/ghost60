@@ -16,7 +16,7 @@ Source of truth for product behavior stays in the docs folder (`ai-generated-jun
 - [x] Phase 9 — Content (30-day SIGNAL LOST schedule: deterministic builder mapping pack modifiers onto engine schemas with cap clamps, rule validation, low/med/high sims with impossible/compression/outlier flags, `content:check` + `content:import` with skip-existing immutability; live import 2026-11-09..2026-12-08 verified + idempotent re-run)
 - [x] Phase 10 — Ghost+ LOCKED, no Stripe (requireGhostPlus() deny-by-default on past-self/practice-cap/archive/history-depth/premium cosmetics; free archive 7-day + locked teasers; free skins equip with avatar preview, premium 403; locked upsell UI; unit + tamper E2E green, ranked untouched)
 - [x] Phase 11.5 — PWA installable + Bubblewrap/TWA readiness (icons, manifest, SW, metadata, `/settings` update + cache-clear page)
-- [ ] Phase 11 — Media (ImageKit upload-auth only if uploads launch)
+- [x] Phase 11 — Media (no user uploads launched: no upload-auth route by decision, ImageKit private key server-only in the campaign script, fixed 5-PNG allowlist, no replay/SVG art to ImageKit; guardrail unit tests green)
 - [ ] Phase 12 — Safety/privacy (deletion, disable, block/report, rate limits, legal, a11y settings)
 - [ ] Phase 13 — Analytics (first-party `product_events`, funnel notes, no vendor SDK)
 - [ ] Phase 14 — Release QA (bundle, CPU, E2E matrix, anti-cheat fuzz, SEO, OAuth, backup)
