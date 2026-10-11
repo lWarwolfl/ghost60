@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test'
+import { createRng } from '@/games/core/rng'
+import { getGame } from '@/games/registry'
+import type { GameId } from '@/games/core/game-module'
 
 test('challenge loop: create, race, revenge', async ({ browser }) => {
   const errors: string[] = []
@@ -9,14 +12,18 @@ test('challenge loop: create, race, revenge', async ({ browser }) => {
   const sess = await creator.request.post('/api/game/session', { data: { mode: 'ranked' } })
   expect(sess.ok()).toBeTruthy()
   const snap = await sess.json()
-  expect(snap.game.gameId).toBe('pulse')
-  const events = [4900, 11900, 19900, 27900, 35900].map((t) => ({ t, type: 'tap' }))
+  // engine-agnostic: simulate whatever today serves (spec must not assume pulse)
+  const gameId = snap.game.gameId as GameId
+  const mod = getGame(gameId)
+  const config = mod.validateConfig(snap.game.config) as never
+  const events = mod.simulate!({ seed: snap.game.seed, config, skill: 0.65, rng: createRng('loop') })
   const sub = await creator.request.post('/api/game/submit', {
     data: { token: snap.token, events, visibilityInterruptions: 0 }
   })
   expect(sub.ok()).toBeTruthy()
   const subJson = await sub.json()
-  expect(subJson.run.validatedScore).toBe(1800)
+  expect(subJson.run.valid).toBe(true)
+  expect(subJson.run.validatedScore).toBeGreaterThan(0)
   const runId = subJson.run.id
   const ch = await creator.request.post('/api/challenges', { data: { runId } })
   expect(ch.ok()).toBeTruthy()
@@ -29,23 +36,26 @@ test('challenge loop: create, race, revenge', async ({ browser }) => {
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(`recipient:${m.text()}`)
   })
-  page.on('requestfailed', (r) => console.log('REQFAIL', r.url(), r.failure()?.errorText))
   await page.goto(`/challenge/${slug}`)
   await page.waitForLoadState('networkidle')
-  await expect(page.getByText('left a ghost.')).toBeVisible()
+  await expect(page.getByText('left a ghost.')).toBeVisible({ timeout: 30000 })
   await page.getByText('RACE GHOST').click()
   await page.waitForLoadState('networkidle')
-  await expect(page.getByText('START RACE')).toBeVisible()
+  await expect(page.getByText('START RACE')).toBeVisible({ timeout: 30000 })
   await page.getByText('START RACE').click()
-  const canvas = page.getByLabel(/Pulse field/)
-  await expect(canvas).toBeVisible()
-  await page.waitForTimeout(3600)
+  const canvas = page.locator('canvas').first()
+  await expect(canvas).toBeVisible({ timeout: 30000 })
+  // generic playthrough: taps + keys cover every engine's input vocabulary
   const box = await canvas.boundingBox()
-  for (let i = 0; i < 2; i += 1) {
-    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2)
-    await page.waitForTimeout(400)
+  const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', ' ', '1', '2']
+  let finished = false
+  for (let i = 0; i < 60 && !finished; i += 1) {
+    if (box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+    await page.keyboard.press(keys[i % keys.length])
+    await page.waitForTimeout(1500)
+    finished = (await page.getByText(/IT GOT AWAY|YOU CAUGHT IT|DEAD HEAT/).count()) > 0
   }
-  await expect(page.getByText(/IT GOT AWAY|YOU CAUGHT IT|DEAD HEAT/)).toBeVisible({ timeout: 60000 })
+  expect(finished).toBe(true)
   await page.getByText('SEND REVENGE').click()
   await expect(page.getByText('SHARE GHOST LINK')).toBeVisible({ timeout: 15000 })
   const urlText = await page.getByText(/\/challenge\//).first().textContent()

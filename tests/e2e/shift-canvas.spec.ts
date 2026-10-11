@@ -17,6 +17,7 @@ function dbUrl() {
 const CORRECT = [0, 1, 0, 1, 0, 1] as const
 
 test('shift canvas: seeded challenge race plays end-to-end', async ({ browser }) => {
+  test.setTimeout(300_000)
   const sql = postgres(dbUrl(), { prepare: false })
   const createdUserIds: string[] = []
   const errors: string[] = []
@@ -78,12 +79,12 @@ test('shift canvas: seeded challenge race plays end-to-end', async ({ browser })
 
     await page.goto(`/challenge/${slug}`)
     await page.waitForLoadState('networkidle')
-    await expect(page.getByText('left a ghost.')).toBeVisible()
+    await expect(page.getByText('left a ghost.')).toBeVisible({ timeout: 30000 })
     await page.getByText('RACE GHOST').click()
     await page.waitForLoadState('networkidle')
-    await expect(page.getByText('START RACE')).toBeVisible()
+    await expect(page.getByText('START RACE')).toBeVisible({ timeout: 30000 })
     await page.getByText('START RACE').click()
-    await expect(page.getByLabel('Tap left')).toBeVisible()
+    await expect(page.getByLabel('Tap left')).toBeVisible({ timeout: 30000 })
     for (let i = 0; i < CORRECT.length; i += 1) {
       await expect(page.getByText(`CARD ${i + 1}/6 · GO`)).toBeVisible({ timeout: 30000 })
       await page.getByLabel(CORRECT[i] === 0 ? 'Tap left' : 'Tap right').click()

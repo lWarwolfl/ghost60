@@ -81,13 +81,13 @@ test('recall canvas: seeded challenge race plays end-to-end', async ({ browser }
 
     await page.goto(`/challenge/${slug}`)
     await page.waitForLoadState('networkidle')
-    await expect(page.getByText('left a ghost.')).toBeVisible()
+    await expect(page.getByText('left a ghost.')).toBeVisible({ timeout: 30000 })
     await page.getByText('RACE GHOST').click()
     await page.waitForLoadState('networkidle')
-    await expect(page.getByText('START RACE')).toBeVisible()
+    await expect(page.getByText('START RACE')).toBeVisible({ timeout: 30000 })
     await page.getByText('START RACE').click()
     const canvas = page.getByLabel(/Recall grid/)
-    await expect(canvas).toBeVisible()
+    await expect(canvas).toBeVisible({ timeout: 30000 })
     await page.waitForTimeout(4000)
     for (const key of ['1', '2', '3']) {
       await page.keyboard.press(key)

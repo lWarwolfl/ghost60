@@ -39,11 +39,11 @@ export default async function ChallengeOg({ params }: { params: Promise<{ slug: 
           fontFamily: 'sans-serif'
         }}
       >
-        <div style={{ fontSize: 36, color: '#a98bff', letterSpacing: 6 }}>GHOST CHALLENGE</div>
-        <div style={{ fontSize: 84, fontWeight: 800, marginTop: 16 }}>{handle} left a ghost.</div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 24, marginTop: 24 }}>
-          <div style={{ fontSize: 120, fontWeight: 800, color: '#62f7e6' }}>{score}</div>
-          <div style={{ fontSize: 36, color: '#9099ad' }}>
+        <div style={{ display: 'flex', fontSize: 36, color: '#a98bff', letterSpacing: 6 }}>GHOST CHALLENGE</div>
+        <div style={{ display: 'flex', fontSize: 84, fontWeight: 800, marginTop: 16 }}>{handle} left a ghost.</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginTop: 24 }}>
+          <div style={{ display: 'flex', fontSize: 120, fontWeight: 800, color: '#62f7e6' }}>{score}</div>
+          <div style={{ display: 'flex', fontSize: 36, color: '#9099ad' }}>
             {title} · one attempt · catch it
           </div>
         </div>
