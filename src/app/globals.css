@@ -17,7 +17,17 @@
   --font-body: var(--font-body), system-ui, sans-serif;
   --radius-card: 18px;
   --radius-control: 12px;
-  --animate-enter: enter 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-instant: 70ms;
+  --motion-fast: 120ms;
+  --motion-standard: 180ms;
+  --motion-panel: 240ms;
+  --motion-reveal: 520ms;
+  --motion-ceremony: 800ms;
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-impact: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-enter: enter 240ms cubic-bezier(0.16, 1, 0.3, 1);
   --animate-reveal: reveal 520ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -103,4 +113,130 @@ body {
   .mark-ambient-body {
     animation: none;
   }
+}
+
+.brand-vector, .brand-vector [data-part] {
+  transform-origin: 32px 32px;
+}
+.brand-vector [data-part="traveler"] { opacity: 0; }
+.brand-vector[data-motion="none"], .brand-vector[data-motion="none"] * { animation: none !important; transition: none !important; }
+.brand-vector[data-vector="mark"][data-motion="ambient"] [data-part="timer-arc"] { animation: arc-breathe 3.2s ease-in-out infinite; }
+.brand-vector[data-vector="mark"][data-motion="ambient"] [data-part="body"] { animation: drift-y 3.6s ease-in-out infinite; }
+.brand-vector[data-vector="mark"][data-motion="ambient"] [data-part="timer-tick"] { animation: tick-drift 2.4s ease-in-out infinite; }
+.brand-vector[data-vector="mark"][data-motion="enter"] [data-part="timer-arc"] { animation: draw-line 420ms var(--ease-enter) both; }
+.brand-vector[data-vector="mark"][data-motion="enter"] [data-part="body"] { animation: mark-in 320ms var(--ease-enter) both; }
+.brand-vector[data-vector="mark"][data-motion="enter"] [data-part^="eye-"] { animation: vector-fade 120ms 220ms both; }
+.brand-vector[data-vector="mark"][data-motion="enter"] [data-part="timer-tick"] { animation: mark-in 120ms 300ms both; }
+.brand-vector[data-vector="mark"][data-motion="success"] { animation: mark-hit 260ms var(--ease-impact); }
+.brand-vector[data-vector="mark"][data-motion="success"] [data-part="timer-arc"] { animation: success-sweep 380ms linear; }
+.brand-vector[data-vector="wordmark"] [data-part] { transform-origin: center; }
+.brand-vector[data-vector="wordmark"][data-motion="enter"] [data-part="wordmark-mark"] { animation: vector-fade 320ms both; }
+.brand-vector[data-vector="wordmark"][data-motion="enter"] [data-part="wordmark-ghost"] { animation: vector-fade 320ms 60ms both; }
+.brand-vector[data-vector="wordmark"][data-motion="enter"] [data-part="wordmark-60"] { animation: vector-fade 320ms 120ms both; }
+.brand-vector[data-game="pulse"][data-motion="ambient"] [data-part="outer-ring"] { animation: pulse-breathe 2.4s ease-in-out infinite; }
+.brand-vector[data-game="pulse"][data-motion="active"] [data-part="inner-ring"] { animation: pulse-beat 1.2s ease-in-out infinite; }
+.brand-vector[data-game="pulse"][data-motion="complete"] circle:not([data-part="dot"]) { animation: pulse-complete 260ms var(--ease-standard); }
+.brand-vector[data-game="snap"][data-motion="ambient"] [data-part="brackets"] { animation: corner-drift 2.2s ease-in-out infinite; }
+.brand-vector[data-game="snap"][data-motion="ambient"] [data-part="brackets-opposite"] { animation: corner-drift-opposite 2.2s ease-in-out infinite; }
+.brand-vector[data-game="snap"][data-motion="active"] [data-part^="brackets"] { animation: bracket-snap 350ms var(--ease-standard); }
+.brand-vector[data-game="snap"][data-motion="active"] [data-part="star"] { animation: star-flash 100ms 90ms; }
+.brand-vector[data-game="snap"][data-motion="complete"] [data-part="star"] { animation: star-turn 260ms var(--ease-standard); }
+.brand-vector[data-game="orbit"][data-motion="ambient"] [data-part="marker"] { animation: vector-orbit 5s linear infinite; }
+.brand-vector[data-game="orbit"][data-motion="complete"] [data-part="target-arc"] { animation: icon-success 260ms; }
+.brand-vector[data-game="orbit"][data-motion="complete"][data-outcome="error"] [data-part="target-arc"] { animation-name: icon-error; stroke-dasharray: 2 2; }
+.brand-vector[data-game="recall"] [data-part^="sample-"] { opacity: .7; }
+.brand-vector[data-game="recall"]:is([data-motion="ambient"], [data-motion="active"]) [data-part^="sample-"] { animation: recall-sample 2580ms linear infinite; }
+.brand-vector[data-game="recall"]:is([data-motion="ambient"], [data-motion="active"]) [data-part="sample-1"] { animation-delay: 260ms; }
+.brand-vector[data-game="recall"]:is([data-motion="ambient"], [data-motion="active"]) [data-part="sample-2"] { animation-delay: 520ms; }
+.brand-vector[data-game="recall"][data-motion="complete"] [data-part^="sample-"] { fill: #62f7e6; animation: recall-complete 220ms; }
+.brand-vector[data-game="shift"][data-motion="ambient"] [data-part="forward"] { animation: shift-drift 1.8s ease-in-out infinite; }
+.brand-vector[data-game="shift"][data-motion="ambient"] [data-part="backward"] { animation: shift-drift-opposite 1.8s ease-in-out infinite; }
+.brand-vector[data-game="shift"][data-motion="active"] [data-part] { transition: opacity 140ms, transform 140ms var(--ease-standard); }
+.brand-vector[data-game="shift"][data-motion="active"][data-direction="forward"] [data-part="backward"],
+.brand-vector[data-game="shift"][data-motion="active"][data-direction="backward"] [data-part="forward"] { opacity: .3; transform: translateX(-2px); }
+.brand-vector[data-game="shift"][data-motion="complete"] [data-part] { animation: earned-flash 220ms; }
+.brand-vector[data-game="trace"][data-motion="ambient"] [data-part="traveler"] { opacity: 1; offset-path: path('M12 44C20 17 30 51 38 24c4-13 9-10 14-4'); animation: trace-travel 3.8s linear infinite; }
+.brand-vector[data-game="trace"][data-motion="complete"] [data-part="curve"] { animation: draw-line 320ms linear both; }
+.brand-vector[data-vector="avatar"][data-motion="idle"] [data-part="avatar"] { animation: avatar-idle 2.8s ease-in-out infinite; }
+.brand-vector[data-vector="avatar"][data-motion="race"] [data-trail] { animation: avatar-trail 420ms linear infinite; }
+.brand-vector[data-vector="avatar"][data-motion="race"] [data-trail="1"] { animation-delay: -140ms; }
+.brand-vector[data-vector="avatar"][data-motion="race"] [data-trail="2"] { animation-delay: -280ms; }
+.brand-vector[data-vector="avatar"][data-motion="win"] [data-part="avatar"] { animation: avatar-hop 420ms var(--ease-enter); }
+.brand-vector[data-vector="avatar"][data-motion="win"] [data-part="body"] { animation: icon-success 420ms; }
+.brand-vector[data-vector="avatar"][data-motion="loss"] [data-part="avatar"] { animation: avatar-loss 320ms; }
+.brand-vector[data-effect="chromatic"] [data-part="echo-cyan"] { transform: translateX(-2px); }
+.brand-vector[data-effect="chromatic"] [data-part="echo-magenta"] { transform: translateX(2px); }
+.brand-vector[data-effect="static"] [data-part="static-cuts"] { stroke-dasharray: 5 4; }
+.brand-vector[data-effect="static"]:not([data-motion="none"]) [data-part="static-cuts"] { animation: static-cuts 125ms steps(2, end) infinite; }
+.brand-vector[data-effect="scanline"]:not([data-motion="none"]) [data-part="scan-bands"] { animation: scan-bands 1s linear infinite; }
+.brand-vector[data-effect="heatwave"]:not([data-motion="none"]) [data-part="heat-ribbon"] { animation: heat-ribbon 1.8s ease-in-out infinite; }
+.brand-vector:not([data-motion="none"]) [data-part="skin-particles"] { animation: skin-particles 2.4s ease-in-out infinite; }
+.brand-vector[data-vector="streak"][data-motion="idle"] [data-part="core"] { transform-origin: 33px 48px; animation: wisp-core 1.4s ease-in-out infinite; }
+.brand-vector[data-vector="streak"][data-motion="increment"] [data-part="flame"] { animation: wisp-rise 480ms var(--ease-enter); }
+.brand-vector[data-vector="streak"][data-motion="increment"] [data-part="sparks"] { animation: wisp-sparks 480ms var(--ease-enter) both; }
+.brand-vector[data-vector="rank"][data-motion="ambient"] [data-part="ring"] { animation: rank-ring 8s ease-in-out infinite; }
+.brand-vector[data-vector="rank"][data-motion="enter"] [data-part="new-badge"] { animation: mark-in 420ms var(--ease-enter); }
+.brand-vector[data-vector="rank"][data-motion="promote"] [data-part="old-badge"] { animation: old-rank 180ms both; }
+.brand-vector[data-vector="rank"][data-motion="promote"] [data-part="new-badge"] { animation: vector-fade 420ms 300ms both; }
+.brand-vector[data-vector="rank"][data-motion="promote"] [data-part="new-badge"] [data-part="ring"] { animation: mark-in 420ms 300ms both; }
+.brand-vector[data-vector="rank"][data-motion="promote"] [data-part="new-badge"] [data-part="geometry"] { animation: draw-line 420ms 300ms both; }
+.brand-vector[data-vector="rank"][data-motion="promote"] [data-part="new-badge"] [data-part="center"] { animation: center-brighten 120ms 180ms both; }
+.brand-vector[data-vector="rank"][data-motion="promote"] [data-part="rank-title"] { animation: vector-fade 120ms 800ms both; }
+.brand-vector[data-vector="rank"][data-motion="promote"] [data-part="burst"] { animation: rank-burst 600ms 300ms both; }
+@keyframes tick-drift { 50% { transform: rotate(10deg); } }
+@keyframes draw-line { from { stroke-dasharray: 1; stroke-dashoffset: 1; } to { stroke-dasharray: 1; stroke-dashoffset: 0; } }
+@keyframes vector-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mark-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes mark-hit { 50% { transform: scale(1.06); } }
+@keyframes success-sweep { 0% { stroke: #62f7e6; stroke-dasharray: .25 .75; stroke-dashoffset: 1; } 80% { stroke: #c7ff5e; } 100% { stroke: #62f7e6; stroke-dasharray: .25 .75; stroke-dashoffset: 0; } }
+@keyframes pulse-breathe { 50% { opacity: .8; } }
+@keyframes pulse-beat { 0%, 100% { transform: scale(.82); } 50% { transform: scale(1.14); } }
+@keyframes pulse-complete { from { transform: scale(1.1); } 60% { transform: scale(1); stroke: #c7ff5e; } to { transform: scale(1); } }
+@keyframes corner-drift-opposite { 50% { transform: translate(-1.5px, -1.5px); } }
+@keyframes corner-drift { 50% { transform: translate(1.5px, 1.5px); } }
+@keyframes bracket-snap { 0%, 100% { transform: scale(1); } 26%, 54% { transform: scale(.9); } }
+@keyframes star-flash { 50% { fill: #62f7e6; } }
+@keyframes star-turn { 50% { transform: rotate(45deg); } }
+@keyframes vector-orbit { to { transform: rotate(360deg); } }
+@keyframes icon-success { 50% { stroke: #c7ff5e; } }
+@keyframes icon-error { 50% { stroke: #ff668f; } }
+@keyframes recall-sample { 0%, 10% { opacity: 1; } 10.1%, 100% { opacity: .15; } }
+@keyframes recall-complete { from { fill: #a98bff; opacity: .5; } to { fill: #62f7e6; opacity: .7; } }
+@keyframes shift-drift-opposite { 0%, 100% { transform: translateX(2px); } 50% { transform: translateX(-2px); } }
+@keyframes shift-drift { 0%, 100% { transform: translateX(-2px); } 50% { transform: translateX(2px); } }
+@keyframes earned-flash { 50% { opacity: .6; } }
+@keyframes trace-travel { 0% { offset-distance: 0%; } 73.68%, 100% { offset-distance: 100%; } }
+@keyframes avatar-idle { 0%, 100% { transform: translateY(-2px) rotate(-.4deg); } 50% { transform: translateY(2px) rotate(.4deg); } }
+@keyframes avatar-trail { from { opacity: .22; } to { opacity: 0; } }
+@keyframes avatar-hop { 45% { transform: translateY(-6px); } }
+@keyframes avatar-loss { 50% { opacity: .8; } }
+@keyframes static-cuts { 50% { transform: translateX(1px); } }
+@keyframes scan-bands { to { transform: translateY(24px); } }
+@keyframes heat-ribbon { 50% { transform: translateX(1.5px); } }
+@keyframes skin-particles { 50% { transform: translateY(-2px); opacity: .35; } }
+@keyframes wisp-core { 50% { transform: scale(1.04); } }
+@keyframes wisp-rise { 50% { transform: translateY(-4px); fill: #c7ff5e; } }
+@keyframes wisp-sparks { from { opacity: 0; transform: translateY(0); } 25% { opacity: 1; } to { opacity: 0; transform: translateY(-7px); } }
+@keyframes rank-ring { 50% { opacity: .7; transform: rotate(4deg) scale(1.01); } }
+@keyframes old-rank { to { opacity: 0; filter: blur(1px); } }
+@keyframes center-brighten { from { opacity: .4; } to { opacity: 1; fill: #f5f7ff; } }
+@keyframes rank-burst { from { opacity: 0; transform: scale(.7); } 20% { opacity: .7; } to { opacity: 0; transform: scale(1.3); } }
+@media (max-width: 430px) {
+  .brand-vector[data-effect="chromatic"] [data-part="echo-cyan"] { transform: translateX(-1px); }
+  .brand-vector[data-effect="chromatic"] [data-part="echo-magenta"] { transform: translateX(1px); }
+}
+html[data-motion-paused="true"] *, html[data-motion-paused="true"] *::before, html[data-motion-paused="true"] *::after,
+.brand-vector[data-motion-paused="true"], .brand-vector[data-motion-paused="true"] * { animation-play-state: paused !important; }
+html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, html[data-reduced-motion="true"] *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 120ms !important; }
+html[data-reduced-motion="true"] :is(.animate-enter, .animate-reveal) { animation: vector-fade 120ms both !important; }
+.brand-vector[data-reduced-motion="true"], .brand-vector[data-reduced-motion="true"] * { animation: none !important; transition: none !important; }
+.brand-vector[data-reduced-motion="true"] :is([data-part="trails"], [data-part="sparks"], [data-part="burst"], [data-part="old-badge"], [data-part="skin-particles"]) { display: none; }
+.brand-vector[data-vector="streak"][data-reduced-motion="true"][data-motion="increment"] [data-part="flame"] { animation: reduced-earned 120ms !important; }
+.brand-vector[data-vector="mark"][data-reduced-motion="true"][data-motion="success"] [data-part="timer-arc"],
+.brand-vector[data-vector="avatar"][data-reduced-motion="true"][data-motion="win"] [data-part="body"] { animation: icon-success 120ms !important; }
+@keyframes reduced-earned { 50% { fill: #c7ff5e; } }
+@media (prefers-reduced-motion: reduce) {
+  .brand-vector, .brand-vector * { animation: none !important; transition: none !important; }
+  .brand-vector :is([data-part="trails"], [data-part="sparks"], [data-part="burst"], [data-part="old-badge"], [data-part="skin-particles"]) { display: none; }
+  .animate-enter, .animate-reveal { animation: vector-fade 120ms both !important; }
 }

@@ -5,9 +5,19 @@ import { Entitlement } from '@/drizzle/schema'
 
 export type TPlan = 'free' | 'ghost_plus'
 
-export async function getPlan(userId: string): Promise<TPlan> {
-  const rows = await db.select().from(Entitlement).where(eq(Entitlement.userId, userId))
-  return rows[0]?.plan === 'ghost_plus' ? 'ghost_plus' : 'free'
+export async function getPlan(
+  userId: string,
+  reader: Pick<typeof db, 'select'> = db
+): Promise<TPlan> {
+  const rows = await reader.select().from(Entitlement).where(eq(Entitlement.userId, userId))
+  const entitlement = rows[0]
+  return entitlement?.plan === 'ghost_plus' &&
+    (entitlement.provider !== 'test' || process.env.NODE_ENV === 'development') &&
+    (entitlement.status === 'active' || entitlement.status === 'trialing') &&
+    entitlement.currentPeriodEnd &&
+    entitlement.currentPeriodEnd.getTime() > Date.now()
+    ? 'ghost_plus'
+    : 'free'
 }
 
 export async function isGhostPlus(userId: string): Promise<boolean> {

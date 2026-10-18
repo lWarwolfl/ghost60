@@ -3,17 +3,26 @@ import { QUERY_KEYS } from '@/features/game/queries/keys'
 import type { TPublicGame } from '@/features/game/store/game-store'
 
 export async function fetchToday(): Promise<TPublicGame> {
-  const res = await fetch('/api/game/today')
-  if (!res.ok) throw new Error('no-game-today')
+  const res = await fetch('/api/game/today', { cache: 'no-store' })
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `today-failed-${res.status}`)
   return res.json()
 }
 
-const TODAY_STALE_MS = 5 * 60 * 1000
+const options = {
+  queryKey: [QUERY_KEYS.TODAY],
+  queryFn: fetchToday,
+  retry: 1,
+  staleTime: 0,
+  refetchOnMount: 'always' as const,
+  refetchOnWindowFocus: 'always' as const,
+  refetchOnReconnect: 'always' as const,
+  refetchInterval: () => 86400000 - (Date.now() % 86400000) + 50
+}
 
 export function useTodayGame() {
-  return useQuery({ queryKey: [QUERY_KEYS.TODAY], queryFn: fetchToday, retry: 1, staleTime: TODAY_STALE_MS })
+  return useQuery(options)
 }
 
 export function useTodayGameSuspense() {
-  return useSuspenseQuery({ queryKey: [QUERY_KEYS.TODAY], queryFn: fetchToday, retry: 1, staleTime: TODAY_STALE_MS })
+  return useSuspenseQuery(options)
 }

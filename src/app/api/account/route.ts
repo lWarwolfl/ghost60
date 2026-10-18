@@ -18,9 +18,10 @@ import {
   Streak,
   User,
   UserAchievement,
-  XpLedger
+  XpLedger,
 } from '@/drizzle/schema'
 import { getCurrentUser } from '@/lib/auth/server'
+import { cancelSubscription } from '@/lib/billing/stripe'
 import { RATE_LIMITS, checkRateLimit, rateLimitedResponse } from '@/lib/game/rate-limit'
 
 export async function DELETE() {
@@ -30,9 +31,20 @@ export async function DELETE() {
     return rateLimitedResponse()
   }
   const uid = user.id
+  const [entitlement] = await db.select().from(Entitlement).where(eq(Entitlement.userId, uid))
+  if (entitlement?.provider === 'stripe' && entitlement.providerSubscriptionId) {
+    try {
+      await cancelSubscription(entitlement.providerSubscriptionId)
+    } catch {
+      return NextResponse.json({ error: 'subscription-cancel-failed' }, { status: 503 })
+    }
+  }
 
   await db.transaction(async (tx) => {
-    const myChallenges = await tx.select({ id: Challenge.id }).from(Challenge).where(eq(Challenge.creatorUserId, uid))
+    const myChallenges = await tx
+      .select({ id: Challenge.id })
+      .from(Challenge)
+      .where(eq(Challenge.creatorUserId, uid))
     const myChallengeIds = myChallenges.map((c) => c.id)
     const myRuns = await tx.select({ id: Run.id }).from(Run).where(eq(Run.userId, uid))
     const myRunIds = myRuns.map((r) => r.id)
@@ -77,9 +89,7 @@ export async function DELETE() {
     await tx.delete(UserAchievement).where(eq(UserAchievement.userId, uid))
     await tx.delete(Entitlement).where(eq(Entitlement.userId, uid))
     await tx.delete(PlayerProfile).where(eq(PlayerProfile.userId, uid))
-    await tx
-      .delete(Block)
-      .where(or(eq(Block.blockerUserId, uid), eq(Block.blockedUserId, uid)))
+    await tx.delete(Block).where(or(eq(Block.blockerUserId, uid), eq(Block.blockedUserId, uid)))
     await tx.delete(Report).where(eq(Report.reporterUserId, uid))
     await tx.delete(ProductEvent).where(eq(ProductEvent.userId, uid))
 

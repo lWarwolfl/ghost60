@@ -1,5 +1,4 @@
-import fs from 'node:fs'
-import path from 'node:path'
+import catalog from '../../../content/skin-catalog.json'
 
 export type TSkinEntitlement = 'free' | 'ghost_plus'
 
@@ -34,13 +33,8 @@ export type TSkinCatalog = {
   skins: TSkin[]
 }
 
-let cached: TSkinCatalog | null = null
-
 export function loadSkinCatalog(): TSkinCatalog {
-  if (!cached) {
-    cached = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'content', 'skin-catalog.json'), 'utf8')) as TSkinCatalog
-  }
-  return cached
+  return catalog as TSkinCatalog
 }
 
 export function getSkin(id: string): TSkin | null {
@@ -56,4 +50,9 @@ export function canEquip(plan: string, skinId: string): boolean {
   if (!skin) return false
   if (skin.entitlement === 'free') return true
   return plan === 'ghost_plus'
+}
+
+export function resolveSkin(id?: string | null, plan = 'free'): TSkin {
+  const skin = id ? getSkin(id) : null
+  return skin && canEquip(plan, skin.id) ? skin : loadSkinCatalog().skins[0]
 }

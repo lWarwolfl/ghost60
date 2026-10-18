@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 }
 
-export function isChallengeGone(challenge: Pick<TChallenge, 'disabledAt' | 'expiresAt'>) {
+function isChallengeGone(challenge: Pick<TChallenge, 'disabledAt' | 'expiresAt'>) {
   return challenge.disabledAt !== null || challenge.expiresAt.getTime() < Date.now()
 }
 

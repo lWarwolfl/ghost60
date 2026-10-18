@@ -69,7 +69,7 @@ export function ShiftRunner({
     if (session.phase !== 'running') return
     if (current === -1) return
     audio.unlock()
-    session.logEvent({ type: 'choice', value: side })
+    if (session.logEvent({ type: 'choice', value: side }) < 0) return
     const res = shiftEngine.scoreRun({ seed: game.seed, config, events: session.eventsRef.current, visibilityInterruptions: 0 })
     setScore(res.score)
     const card = cards[current]

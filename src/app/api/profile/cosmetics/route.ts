@@ -6,7 +6,7 @@ import { PlayerProfile } from '@/drizzle/schema'
 import { getCurrentUser } from '@/lib/auth/server'
 import { getPlan } from '@/lib/game/entitlement'
 import { RATE_LIMITS, checkRateLimit, rateLimitedResponse } from '@/lib/game/rate-limit'
-import { canEquip, getSkin } from '@/lib/game/skins'
+import { canEquip, getSkin, resolveSkin } from '@/lib/game/skins'
 
 const CosmeticsSchema = z.object({
   slot: z.enum(['ghost', 'card']),
@@ -34,14 +34,10 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'ghost-plus-locked', locked: true }, { status: 403 })
   }
   const field = parsed.data.slot === 'ghost' ? 'activeGhostSkin' : 'activeCardSkin'
-  const existing = await db.select().from(PlayerProfile).where(eq(PlayerProfile.userId, user.id))
-  if (existing.length === 0) {
-    await db.insert(PlayerProfile).values({ userId: user.id, [field]: skin.id })
-  } else {
-    await db.update(PlayerProfile).set({ [field]: skin.id }).where(eq(PlayerProfile.userId, user.id))
-  }
+  await db.insert(PlayerProfile).values({ userId: user.id, [field]: skin.id })
+    .onConflictDoUpdate({ target: PlayerProfile.userId, set: { [field]: skin.id } })
   const rows = await db.select().from(PlayerProfile).where(eq(PlayerProfile.userId, user.id))
   return NextResponse.json({
-    profile: { activeGhostSkin: rows[0]?.activeGhostSkin ?? null, activeCardSkin: rows[0]?.activeCardSkin ?? null }
+    profile: { activeGhostSkin: resolveSkin(rows[0]?.activeGhostSkin, plan).id, activeCardSkin: resolveSkin(rows[0]?.activeCardSkin, plan).id }
   })
 }

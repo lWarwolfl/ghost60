@@ -1,51 +1,37 @@
-import { and, eq, gte, inArray, lte } from 'drizzle-orm'
+import { and, count, desc, eq, gte, inArray, lt, lte } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { db } from '@/drizzle'
 import { DailyGame, Run } from '@/drizzle/schema'
 import { getCurrentUser } from '@/lib/auth/server'
 import { getPlan } from '@/lib/game/entitlement'
 
-function shiftDay(dateStr: string, delta: number) {
-  return new Date(new Date(`${dateStr}T00:00:00Z`).getTime() + delta * 86400000).toISOString().slice(0, 10)
-}
-
-export async function GET() {
+export async function GET(req: Request) {
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const today = new Date().toISOString().slice(0, 10)
-  const start = shiftDay(today, -6)
-  const games = await db
-    .select()
-    .from(DailyGame)
-    .where(and(gte(DailyGame.gameDate, start), lte(DailyGame.gameDate, today)))
-  const gameIds = games.map((g) => g.id)
-  const runs =
-    gameIds.length > 0
-      ? await db
-          .select({ dailyGameId: Run.dailyGameId })
-          .from(Run)
-          .where(
-            and(
-              eq(Run.userId, user.id),
-              eq(Run.mode, 'ranked'),
-              eq(Run.valid, true),
-              inArray(Run.dailyGameId, gameIds)
-            )
-          )
-      : []
-  const completed = new Set(runs.map((r) => r.dailyGameId))
-  const older = await db.select({ id: DailyGame.id }).from(DailyGame).where(lte(DailyGame.gameDate, shiftDay(today, -7)))
+  const start = new Date(Date.parse(`${today}T00:00:00Z`) - 6 * 86400000).toISOString().slice(0, 10)
+  const before = new URL(req.url).searchParams.get('before')
+  if (before && (!/^\d{4}-\d{2}-\d{2}$/.test(before) || !Number.isFinite(Date.parse(before)))) return NextResponse.json({ error: 'bad-cursor' }, { status: 400 })
   const plan = await getPlan(user.id)
+  const locked = plan !== 'ghost_plus'
+  const games = await db.select().from(DailyGame).where(and(
+    lte(DailyGame.gameDate, today), lte(DailyGame.publishAt, new Date()),
+    inArray(DailyGame.status, ['scheduled', 'live', 'completed']),
+    locked ? gte(DailyGame.gameDate, start) : undefined,
+    before ? lt(DailyGame.gameDate, before) : undefined
+  )).orderBy(desc(DailyGame.gameDate)).limit(31)
+  const visible = games.slice(0, 30)
+  const runs = visible.length ? await db.select({ id: Run.id, dailyGameId: Run.dailyGameId, mode: Run.mode, score: Run.validatedScore }).from(Run).where(and(eq(Run.userId, user.id), eq(Run.valid, true), inArray(Run.dailyGameId, visible.map((game) => game.id)))).orderBy(desc(Run.createdAt)) : []
+  const older = locked ? await db.select({ total: count() }).from(DailyGame).where(and(lt(DailyGame.gameDate, start), lte(DailyGame.publishAt, new Date()), inArray(DailyGame.status, ['scheduled', 'live', 'completed']))) : []
   return NextResponse.json({
-    locked: plan !== 'ghost_plus',
-    days: games
-      .map((g) => ({
-        gameDate: g.gameDate,
-        gameId: g.gameId,
-        title: g.title,
-        completed: completed.has(g.id)
-      }))
-      .sort((a, b) => (a.gameDate < b.gameDate ? 1 : -1)),
-    lockedOlder: older.length
-  })
+    locked,
+    days: visible.map((game) => ({
+      id: game.id, gameDate: game.gameDate, gameId: game.gameId, title: game.title,
+      completed: runs.some((run) => run.dailyGameId === game.id && run.mode === 'ranked'),
+      sourceRunId: runs.find((run) => run.dailyGameId === game.id)?.id ?? null,
+      bestScore: runs.filter((run) => run.dailyGameId === game.id).reduce<number | null>((best, run) => best === null ? run.score : Math.max(best, run.score), null)
+    })),
+    lockedOlder: older[0]?.total ?? 0,
+    nextCursor: games.length > 30 ? visible[visible.length - 1].gameDate : null
+  }, { headers: { 'Cache-Control': 'private, no-store' } })
 }

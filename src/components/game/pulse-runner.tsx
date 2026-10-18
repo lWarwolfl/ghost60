@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { TRunSession } from '@/features/game/hooks/useRunSession.hook'
 import type { TPublicGame } from '@/features/game/store/game-store'
 import { audio } from '@/lib/game/audio'
+import { gameplayLoop, drawFeedback, pulseAssignments } from '@/lib/game/gameplay-motion'
 import { pulseEngine, type TPulseConfig } from '@/games/pulse/engine'
 
 const APPROACH_MS = 1200
@@ -28,6 +29,8 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
   const [score, setScore] = useState(0)
+  const impactRef = useRef<{ at: number; targetMs: number; accuracy: number; delta: number } | null>(null)
+  const scoreRef = useRef(0)
   const config = useMemo(
     () => pulseEngine.validateConfig(game.config) as TPulseConfig,
     [game.config]
@@ -48,7 +51,6 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
       dims = fitCanvas(canvas)
     })
     ro.observe(canvas)
-    let raf = 0
     const draw = () => {
       const elapsed = session.getElapsed()
       const { w, h } = dims
@@ -85,42 +87,37 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
         ctx2d.stroke()
         ctx2d.globalAlpha = 1
       }
-      const taps = session.eventsRef.current
-      const used = new Array(taps.length).fill(false)
-      for (const pulse of pulses) {
-        let best = -1
-        let bestDt = Number.POSITIVE_INFINITY
-        for (let i = 0; i < taps.length; i += 1) {
-          if (used[i]) continue
-          const dt = Math.abs(taps[i].t - pulse.targetMs)
-          if (dt < bestDt) {
-            bestDt = dt
-            best = i
-          }
+      const impact = impactRef.current
+      if (impact) {
+        const age = elapsed - impact.at
+        const kind = impact.accuracy >= 0.999 ? 'perfect' : impact.accuracy > 0 ? 'good' : 'miss'
+        if (age >= 0 && age < 90) {
+          ctx2d.strokeStyle = kind === 'perfect' ? '#c7ff5e' : kind === 'good' ? '#62f7e6' : '#ff668f'
+          ctx2d.lineWidth = lw * 2
+          ctx2d.beginPath()
+          ctx2d.arc(cx, cy, radiusAt(impact.at, impact.targetMs, r), 0, Math.PI * 2)
+          ctx2d.stroke()
         }
-        if (best === -1) continue
-        used[best] = true
-        const age = elapsed - taps[best].t
-        if (age < 0 || age > 150) continue
-        const acc = Math.max(0, 1 - bestDt / pulse.toleranceMs)
-        const color = acc >= 0.999 ? '#c7ff5e' : acc > 0 ? '#62f7e6' : '#ff668f'
-        ctx2d.strokeStyle = color
-        ctx2d.lineWidth = lw * 2
-        ctx2d.globalAlpha = session.reduced ? 1 : Math.max(0, 1 - age / 150)
-        ctx2d.beginPath()
-        ctx2d.arc(cx, cy, radiusAt(taps[best].t, pulse.targetMs, r), 0, Math.PI * 2)
-        ctx2d.stroke()
-        ctx2d.globalAlpha = 1
+        if (age >= 0 && age < (kind === 'miss' ? 80 : 120)) {
+          ctx2d.save()
+          ctx2d.globalAlpha = kind === 'miss' ? 0.45 : 1 - age / 120
+          ctx2d.strokeStyle = kind === 'perfect' ? '#c7ff5e' : kind === 'good' ? '#62f7e6' : '#ff668f'
+          ctx2d.beginPath()
+          ctx2d.arc(cx, cy, r, kind === 'miss' ? -0.15 : 0, kind === 'miss' ? 0.15 : Math.PI * 2)
+          ctx2d.stroke()
+          ctx2d.restore()
+        }
+        drawFeedback(ctx2d, { x: cx, y: cy, radius: r * 0.6, age, duration: 260, reduced: session.reduced, kind, label: kind === 'miss' ? 'MISS' : `+${impact.delta}` })
       }
       if (timeRef.current) {
         const left = Math.max(0, durationMs - elapsed)
         timeRef.current.textContent = `${(left / 1000).toFixed(1)}s`
       }
-      raf = requestAnimationFrame(draw)
+      return elapsed < durationMs
     }
-    raf = requestAnimationFrame(draw)
+    const stop = gameplayLoop(draw)
     return () => {
-      cancelAnimationFrame(raf)
+      stop()
       ro.disconnect()
     }
   }, [durationMs, pulses, session])
@@ -137,15 +134,18 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
         y: Math.min(10000, Math.max(0, Math.round(((clientY - rect.top) / rect.height) * 10000)))
       }
     }
-    session.logEvent({ type: 'tap', p })
+    if (session.logEvent({ type: 'tap', p }) < 0) return
     const events = session.eventsRef.current
     const res = pulseEngine.scoreRun({ seed: game.seed, config, events, visibilityInterruptions: 0 })
     setScore(res.score)
+    const targetIndex = pulseAssignments(pulses, events).indexOf(events.length - 1)
     const last = events[events.length - 1]
-    let best = 0
-    for (const pulse of pulses) best = Math.max(best, Math.max(0, 1 - Math.abs(last.t - pulse.targetMs) / pulse.toleranceMs))
-    if (best >= 0.999) audio.perfect()
-    else if (best > 0) audio.correct()
+    const pulse = pulses[targetIndex]
+    const accuracy = pulse ? Math.max(0, 1 - Math.abs(last.t - pulse.targetMs) / pulse.toleranceMs) : 0
+    impactRef.current = { at: last.t, targetMs: pulse?.targetMs ?? last.t, accuracy, delta: res.score - scoreRef.current }
+    scoreRef.current = res.score
+    if (accuracy >= 0.999) audio.perfect()
+    else if (accuracy > 0) audio.correct()
     else audio.miss()
   }
 
@@ -162,7 +162,7 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex items-center justify-between px-1 py-2 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-2 text-sm">
         <span ref={timeRef} className="tnum text-ghost-muted">
           {(game.durationMs / 1000).toFixed(1)}s
         </span>
@@ -174,6 +174,7 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
         ref={canvasRef}
         role="application"
         aria-label="Pulse field. Tap when the violet ring meets the cyan band. Space works too."
+        style={{ opacity: session.phase === 'finishing' ? 0.6 : 1, transition: 'opacity 120ms linear' }}
         className="min-h-75 w-full flex-1 touch-none rounded-card border border-white/10 bg-ink-900"
         onPointerDown={(e) => tap(e.clientX, e.clientY)}
       />

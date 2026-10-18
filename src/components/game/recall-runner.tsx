@@ -10,9 +10,11 @@ import {
   RECALL_CELL_SLOT_MS,
   recallLayout,
   resolveSequences,
-  showSchedule
+  showSchedule,
+  type TSeqResolution
 } from '@/games/recall/table'
 import { audio } from '@/lib/game/audio'
+import { gameplayLoop, drawFeedback, recallFeedback } from '@/lib/game/gameplay-motion'
 
 function fitCanvas(canvas: HTMLCanvasElement) {
   const dpr = Math.min(2, window.devicePixelRatio || 1)
@@ -44,7 +46,8 @@ export function RecallRunner({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
   const statusRef = useRef<HTMLSpanElement>(null)
-  const verdictRef = useRef<{ cell: number; ok: boolean; at: number } | null>(null)
+  const verdictRef = useRef<ReturnType<typeof recallFeedback>>(null)
+  const resolutionRef = useRef({ count: -1, resolved: [] as TSeqResolution[] })
   const [score, setScore] = useState(0)
   const [focus, setFocus] = useState(0)
   const config = useMemo(() => recallEngine.validateConfig(game.config) as TRecallConfig, [game.config])
@@ -58,18 +61,19 @@ export function RecallRunner({
     const ctx2d = canvas.getContext('2d')
     if (!ctx2d) return
     let dims = fitCanvas(canvas)
+    let layout = recallLayout(dims.w, dims.h, grid)
     const ro = new ResizeObserver(() => {
       dims = fitCanvas(canvas)
+      layout = recallLayout(dims.w, dims.h, grid)
     })
     ro.observe(canvas)
-    let raf = 0
     const draw = () => {
       const elapsed = session.getElapsed()
-      const taps = session.eventsRef.current.filter((e) => e.type === 'choice') as TChoice[]
-      const resolved = resolveSequences(config, taps)
+      const taps = session.eventsRef.current as TChoice[]
+      if (resolutionRef.current.count !== taps.length) resolutionRef.current = { count: taps.length, resolved: resolveSequences(config, taps) }
+      const resolved = resolutionRef.current.resolved
       const { w, h } = dims
       ctx2d.clearRect(0, 0, w, h)
-      const layout = recallLayout(w, h, grid)
       const current = resolved.findIndex((r) => r.status === 'open')
       const finished = resolved.every((r) => r.status !== 'open')
 
@@ -84,16 +88,23 @@ export function RecallRunner({
             const k = Math.floor((elapsed - slot.showStart) / RECALL_CELL_SLOT_MS)
             const on = elapsed - slot.showStart - k * RECALL_CELL_SLOT_MS < RECALL_CELL_ON_MS
             if (on && k < seq.cells.length && seq.cells[k] === i) {
-              fill = 'rgba(199,255,94,0.85)'
-              stroke = '#c7ff5e'
+              fill = 'rgba(98,247,230,0.65)'
+              stroke = '#62f7e6'
             }
           }
         }
         const v = verdictRef.current
-        if (v && v.cell === i && elapsed - v.at < (session.reduced ? 60 : 350)) {
-          fill = v.ok ? 'rgba(98,247,230,0.5)' : 'rgba(255,102,143,0.55)'
-          stroke = v.ok ? '#62f7e6' : '#ff668f'
+        const age = v ? elapsed - v.at : -1
+        if (v && v.cell === i && age >= 0 && age < 90) {
+          fill = 'rgba(98,247,230,0.3)'
+          stroke = '#62f7e6'
         }
+        if (v?.status === 'complete' && age >= 0 && age < v.cells.length * 70 && v.cells[Math.floor(age / 70)] === i) {
+          fill = 'rgba(98,247,230,0.5)'
+          stroke = '#c7ff5e'
+        }
+        if (current !== -1 && elapsed >= schedule[current].showEnd && elapsed < schedule[current].showEnd + 120) stroke = '#62f7e6'
+        if (v?.status === 'failed' && v.cell === i && age >= 0 && age < 180) stroke = '#ff668f'
         ctx2d.beginPath()
         if (typeof ctx2d.roundRect === 'function') ctx2d.roundRect(c.x, c.y, c.size, c.size, c.size * 0.18)
         else ctx2d.rect(c.x, c.y, c.size, c.size)
@@ -102,6 +113,9 @@ export function RecallRunner({
         ctx2d.lineWidth = Math.max(2, layout.size * 0.03)
         ctx2d.strokeStyle = stroke
         ctx2d.stroke()
+        if (v?.status === 'failed' && v.cell === i) {
+          drawFeedback(ctx2d, { x: c.x + c.size / 2, y: c.y + c.size / 2, radius: c.size * 0.4, age, duration: 180, reduced: session.reduced, kind: 'miss', label: 'MISS' })
+        }
         if (i === focus) {
           ctx2d.lineWidth = Math.max(2, layout.size * 0.045)
           ctx2d.strokeStyle = '#62f7e6'
@@ -129,11 +143,11 @@ export function RecallRunner({
         const left = Math.max(0, durationMs - elapsed)
         timeRef.current.textContent = `${(left / 1000).toFixed(1)}s`
       }
-      raf = requestAnimationFrame(draw)
+      return elapsed < durationMs
     }
-    raf = requestAnimationFrame(draw)
+    const stop = gameplayLoop(draw)
     return () => {
-      cancelAnimationFrame(raf)
+      stop()
       ro.disconnect()
     }
   }, [config, durationMs, grid, schedule, session, focus])
@@ -143,18 +157,17 @@ export function RecallRunner({
     if (cell < 0 || cell >= grid * grid) return
     const taps = session.eventsRef.current.filter((e) => e.type === 'choice') as TChoice[]
     const resolved = resolveSequences(config, taps)
-    if (!resolved.some((r) => r.status === 'open')) return
+    const current = resolved.findIndex(r => r.status === 'open')
+    if (current === -1 || session.getElapsed() < schedule[current].showEnd) return
     audio.unlock()
-    const at = session.getElapsed()
-    session.logEvent({ type: 'choice', value: cell })
+    if (session.logEvent({ type: 'choice', value: cell }) < 0) return
     const next = session.eventsRef.current.filter((e) => e.type === 'choice') as TChoice[]
-    const after = resolveSequences(config, next)
     const res = recallEngine.scoreRun({ seed: game.seed, config, events: session.eventsRef.current, visibilityInterruptions: 0 })
     setScore(res.score)
-    const killed = after.some((r) => r.status === 'failed') && !resolved.some((r) => r.status === 'failed')
-    verdictRef.current = { cell, ok: !killed, at }
-    if (killed) audio.miss()
-    else audio.correct()
+    const feedback = recallFeedback(config, next)
+    verdictRef.current = feedback
+    if (feedback?.status === 'failed') audio.miss()
+    else if (feedback?.status === 'complete') audio.correct()
   }
 
   useEffect(() => {
@@ -191,7 +204,7 @@ export function RecallRunner({
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex items-center justify-between px-1 py-2 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-2 text-sm">
         <span ref={timeRef} className="tnum text-ghost-muted">
           {(durationMs / 1000).toFixed(1)}s
         </span>
@@ -207,6 +220,7 @@ export function RecallRunner({
         ref={canvasRef}
         role="application"
         aria-label="Recall grid. Watch the flashing cells, then repeat the sequence. Arrows move, Enter selects, digits work too."
+        style={{ opacity: session.phase === 'finishing' ? 0.6 : 1, transition: 'opacity 120ms linear' }}
         className="min-h-75 w-full flex-1 touch-none rounded-card border border-white/10 bg-ink-900"
         onPointerDown={(e) => {
           const canvas = canvasRef.current

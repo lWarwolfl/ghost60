@@ -16,8 +16,8 @@ export function getMotionPref(): TMotionPref {
 }
 
 export function getSoundPref(): TSoundPref {
-  if (typeof window === 'undefined') return 'on'
-  return window.localStorage.getItem(SOUND_KEY) === 'off' ? 'off' : 'on'
+  if (typeof window === 'undefined') return 'off'
+  return window.localStorage.getItem(SOUND_KEY) === 'on' ? 'on' : 'off'
 }
 
 export function setMotionPref(v: TMotionPref) {

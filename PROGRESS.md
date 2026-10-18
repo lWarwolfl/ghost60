@@ -20,10 +20,21 @@ Source of truth for product behavior stays in the docs folder (`ai-generated-jun
 - [x] Phase 12 — Safety/privacy (transactional account deletion with FK-safe cascade incl. owned-challenge cleanup + league transfer/archive, block-by-handle/unblock, allowlisted reports with challenge/league UI entry points, DB-backed rate_limits with single-roundtrip upsert on session/submit/challenge/cosmetics/report/block/delete, privacy+terms pages with footer links; rate-limit unit + deletion/safety E2Es green)
 - [x] Phase 13 — Analytics (first-party `product_events` via batched `POST /api/events` with 28-name allowlist, ≤25/batch + 32KB + flat-scalar-prop caps, anonId SHA-256 hashed server-side, auth-required + per-user rate limit, no vendor SDK; funnel wiring across session/submit/challenge/league/share/landing/paywall; SQL notes for activation, challenge funnel, D1/D7, conversion in `docs/ANALYTICS.md`; validator unit + ingest/hash E2E + live client-flush E2E green)
 - [x] Phase 14 — Release QA (seeded anti-cheat fuzz over all six engines, idempotent-duplicate + fabricated-storm + offline-retry + expired/disabled E2E paths, 6-viewport overflow matrix, keyboard operability, throttled-load budget, Google consent-URL wiring, pg_dump schema backup, index/EXPLAIN inspect; fixed OG-image 500 + 320px header overflow + date-locked loop spec; full 14-file E2E matrix + 119 unit + build + eslint green, recorded in `docs/RELEASE_QA.md`)
-- [ ] Phase 15 — Launch (seed schedule, launch league, rollover, monitoring)
+- [ ] Phase 15 — Launch (current 30-day schedule restored and read back; readiness/monitoring command verified against Neon; launch league and production deployment still pending)
 - [ ] Phase 16 — Play Store via Bubblewrap (needs production domain + signing key; see checklist)
 - [ ] Deferred — Email flows (plan: pack `docs/EMAIL_FLOWS.md`; Gmail SMTP + Ghost60 template mirroring perfectest-cv; no-spec-change flows vs proposed invite/reminder flows)
 - [x] Client-first game shell on App Router (owner chose over Page Router migration; see `docs/PAGE_ROUTER_MIGRATION.md` — stable draw loops, code-split runners, prefetched run route, instant preflight; submit/session unchanged)
+
+## Availability repair and charge policy
+
+- Confirmed the live database had no 2026-10-18 game; its authored schedule started 2026-11-09. Imported the missing current window without modifying existing days: 22 inserted, 8 preserved, all 30 dates 2026-10-18 through 2026-11-16 read back.
+- Called the real today route against Neon: HTTP response 200, `FIRST SIGNAL`, `pulse`, 45000ms, daily ID `3e0862be-84a0-455c-b105-5086c3b7b506`.
+- Missing current-day content now generates from the authored rotation in production, with conflict-safe inserts and preservation of disabled/retired days. Daily regression tests: 17 passed.
+- Fixed script/test `.env` CRLF parsing with Node `util.parseEnv`; the previous regex silently skipped DATABASE_URL. Regression reproduced missing values, then passed. This was separate from Next's own env loading.
+- Charge/payment work supersedes the old Stripe pause. Free policy: five daily charges, one ranked attempt, free challenge races. Paid policy: unlimited unranked practice. Provider configuration and acceptance checks: `docs/BILLING.md`.
+- Local `/ghost-plus` now has explicit test-payment confirmation and reset: 24-hour server-side test access, no gateway or real charge, guests supported. Production rejects grants and ignores stored test entitlements. Final verification: 188 unit tests, full lint, typecheck and production build passed; no browser checks or live card transactions.
+- `npm run build` now uses webpack: the installed Next 16.4 Turbopack font resolver failed on Archivo. The real webpack production build passed, including all new billing/charge routes. Removed invalid arbitrary exports from two challenge pages exposed by the build check.
+- `npm run launch:status` verified complete coverage and valid current content against Neon. It reports zero traffic as null ratios, missing error telemetry as unavailable, and existing leagues as undesignated; it does not claim production launch readiness.
 
 ## Assets
 

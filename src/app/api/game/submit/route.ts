@@ -1,12 +1,14 @@
 import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { db } from '@/drizzle'
-import { Challenge, ChallengeAttempt, DailyGame, Run, RunSession } from '@/drizzle/schema'
+import { Challenge, ChallengeAttempt, DailyGame, Run, RunSession, User } from '@/drizzle/schema'
 import { SubmitRequestSchema } from '@/features/game/schemas/session.schema'
+import { getPlan } from '@/lib/game/entitlement'
+import { recordServerEvent } from '@/lib/analytics/server'
 import { getCurrentUser } from '@/lib/auth/server'
 import { eventDigest } from '@/games/core/digest'
 import type { GameInputEvent } from '@/games/core/game-module'
-import { applyProgression } from '@/lib/game/progression'
+import { applyProgression, type TProgressionInput } from '@/lib/game/progression'
 import { RATE_LIMITS, checkRateLimit, rateLimitedResponse } from '@/lib/game/rate-limit'
 import { verifySessionToken } from '@/lib/game/token'
 import { getGame } from '@/games/registry'
@@ -39,20 +41,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'bad-token' }, { status: 401 })
   }
 
-  const sessions = await db.select().from(RunSession).where(eq(RunSession.id, payload.sessionId))
+  let progressionInput: TProgressionInput | undefined
+  const response = await db.transaction(async (tx) => {
+  await tx.select({ id: User.id }).from(User).where(eq(User.id, user.id)).for('update')
+  const sessions = await tx.select().from(RunSession).where(eq(RunSession.id, payload.sessionId))
   const session = sessions[0]
   if (!session || session.userId !== user.id) {
     return NextResponse.json({ error: 'bad-session' }, { status: 404 })
   }
   if (session.state === 'submitted') {
-    const existing = await db.select().from(Run).where(eq(Run.sessionId, session.id))
-    return NextResponse.json({ run: existing[0] ?? null, alreadySubmitted: true })
+    const existing = await tx.select().from(Run).where(eq(Run.sessionId, session.id))
+    const attempt = session.challengeId ? (await tx.select().from(ChallengeAttempt).where(and(eq(ChallengeAttempt.challengeId, session.challengeId), eq(ChallengeAttempt.recipientUserId, user.id))))[0] : null
+    return NextResponse.json({ run: existing[0] ?? null, outcome: attempt?.outcome ?? null, alreadySubmitted: true })
   }
   if (session.state === 'cancelled' || session.state === 'expired' || session.expiresAt.getTime() < Date.now()) {
     return NextResponse.json({ error: 'session-expired' }, { status: 410 })
   }
 
-  const games = await db.select().from(DailyGame).where(eq(DailyGame.id, session.dailyGameId))
+  if (session.challengeId) {
+    const prior = await tx.select().from(ChallengeAttempt).where(and(eq(ChallengeAttempt.challengeId, session.challengeId), eq(ChallengeAttempt.recipientUserId, user.id)))
+    if (prior.length) return NextResponse.json({ error: 'already-attempted' }, { status: 409 })
+  }
+  const games = await tx.select().from(DailyGame).where(eq(DailyGame.id, session.dailyGameId))
   const game = games[0]
   if (!game) return NextResponse.json({ error: 'no-game-today' }, { status: 409 })
   let config: unknown
@@ -81,7 +91,7 @@ export async function POST(req: Request) {
   })
 
   if (session.mode === 'ranked' && result.valid) {
-    const dup = await db
+    const dup = await tx
       .select({ id: Run.id })
       .from(Run)
       .where(
@@ -96,7 +106,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const inserted = await db
+    const inserted = await tx
       .insert(Run)
       .values({
         sessionId: session.id,
@@ -114,7 +124,7 @@ export async function POST(req: Request) {
         visibilityInterruptions: parsed.data.visibilityInterruptions
       })
       .returning()
-    await db
+    await tx
       .update(RunSession)
       .set({ state: 'submitted', consumedAt: session.consumedAt ?? new Date() })
       .where(eq(RunSession.id, session.id))
@@ -123,11 +133,11 @@ export async function POST(req: Request) {
     let outcome: string | null = null
     let attemptId: string | undefined
     let sourceScore: number | undefined
-    if (session.mode === 'challenge' && session.challengeId) {
-      const challenges = await db.select().from(Challenge).where(eq(Challenge.id, session.challengeId))
+    if (session.challengeId) {
+      const challenges = await tx.select().from(Challenge).where(eq(Challenge.id, session.challengeId))
       const challenge = challenges[0]
       if (challenge) {
-        const sources = await db.select().from(Run).where(eq(Run.id, challenge.sourceRunId))
+        const sources = await tx.select().from(Run).where(eq(Run.id, challenge.sourceRunId))
         const source = sources[0]
         sourceScore = source?.validatedScore
         if (source && result.valid) {
@@ -136,7 +146,7 @@ export async function POST(req: Request) {
         } else {
           outcome = 'invalid'
         }
-        const attempts = await db
+        const attempts = await tx
           .insert(ChallengeAttempt)
           .values({
             challengeId: challenge.id,
@@ -150,25 +160,30 @@ export async function POST(req: Request) {
         attemptId = attempts[0]?.id
       }
     }
-    let progression = { xpAwarded: 0, unlocked: [] as string[], isPersonalBest: false }
-    try {
-      const applied = await applyProgression({
-        userId: user.id,
-        run: { id: run.id, mode: run.mode, valid: run.valid, validatedScore: run.validatedScore, dailyGameId: run.dailyGameId },
-        engineId: game.gameId,
-        gameDate: game.gameDate,
-        outcome,
-        attemptId,
-        sourceScore,
-        isGhostPlus: false
-      })
-      progression = { xpAwarded: applied.xpAwarded, unlocked: applied.unlocked, isPersonalBest: applied.isPersonalBest }
-    } catch {
-      progression = { xpAwarded: 0, unlocked: [], isPersonalBest: false }
+    let pastSelfOutcome: string | null = null
+    if (session.mode === 'past_self') {
+      const sourceId = (session.metadata as { sourceRunId?: string }).sourceRunId
+      const source = sourceId ? (await tx.select().from(Run).where(and(eq(Run.id, sourceId), eq(Run.userId, user.id), eq(Run.dailyGameId, game.id), eq(Run.valid, true))))[0] : null
+      if (source) pastSelfOutcome = result.valid ? result.score > source.validatedScore ? 'win' : result.score < source.validatedScore ? 'loss' : 'tie' : 'invalid'
     }
-    return NextResponse.json({ run, outcome, progression })
+    progressionInput = {
+      userId: user.id,
+      run: { id: run.id, mode: run.mode, valid: run.valid, validatedScore: run.validatedScore, dailyGameId: run.dailyGameId },
+      engineId: game.gameId, gameDate: game.gameDate, outcome, attemptId, sourceScore, isGhostPlus: (await getPlan(user.id, tx)) === 'ghost_plus'
+    }
+    return NextResponse.json({ run, outcome, pastSelfOutcome, progression: { xpAwarded: 0, unlocked: [], isPersonalBest: false } })
   } catch (e) {
     if (isConflict(e)) return NextResponse.json({ error: 'ranked-used' }, { status: 409 })
     throw e
+  }
+  })
+  if (!progressionInput) return response
+  try {
+    const applied = await applyProgression(progressionInput)
+    const body = await response.json()
+    return NextResponse.json({ ...body, progression: { xpAwarded: applied.xpAwarded, unlocked: applied.unlocked, isPersonalBest: applied.isPersonalBest } })
+  } catch {
+    await recordServerEvent('progression_failed', { operation: 'submit' }, user.id)
+    return response
   }
 }

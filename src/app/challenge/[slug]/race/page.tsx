@@ -9,7 +9,7 @@ import { RaceClient } from '@/app/challenge/[slug]/race/page.client'
 
 export const dynamic = 'force-dynamic'
 
-export function isChallengeGone(challenge: Pick<TChallenge, 'disabledAt' | 'expiresAt'>) {
+function isChallengeGone(challenge: Pick<TChallenge, 'disabledAt' | 'expiresAt'>) {
   return challenge.disabledAt !== null || challenge.expiresAt.getTime() < Date.now()
 }
 

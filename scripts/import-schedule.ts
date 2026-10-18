@@ -107,25 +107,22 @@ async function main() {
     const built = buildDayConfig(day)
     const gameDate = shiftDay(start, day.day - 1)
     const mod = getGame(day.engine as 'pulse')
-    try {
-      await db.insert(DailyGame).values({
-        gameDate,
-        gameId: day.engine,
-        engineVersion: mod.engineVersion,
-        seed: built.seed,
-        config: built.config as Record<string, unknown>,
-        title: day.title,
-        instruction: day.instruction,
-        shareSubtitle: day.shareSubtitle,
-        difficulty: day.difficulty,
-        seasonId,
-        status: 'scheduled',
-        publishAt: new Date(`${gameDate}T00:00:00Z`)
-      })
-      inserted += 1
-    } catch {
-      skipped += 1
-    }
+    const created = await db.insert(DailyGame).values({
+      gameDate,
+      gameId: day.engine,
+      engineVersion: mod.engineVersion,
+      seed: built.seed,
+      config: built.config as Record<string, unknown>,
+      title: day.title,
+      instruction: day.instruction,
+      shareSubtitle: day.shareSubtitle,
+      difficulty: day.difficulty,
+      seasonId,
+      status: 'scheduled',
+      publishAt: new Date(`${gameDate}T00:00:00Z`)
+    }).onConflictDoNothing({ target: DailyGame.gameDate }).returning({ id: DailyGame.id })
+    if (created.length > 0) inserted += 1
+    else skipped += 1
   }
   const first = shiftDay(start, 0)
   const last = shiftDay(start, 29)

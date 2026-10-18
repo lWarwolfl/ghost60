@@ -5,6 +5,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ShareButtons } from '@/components/results/share-buttons'
+import { SkinCardFrame } from '@/components/game/skin-card-frame'
+import { useProfile } from '@/features/game/queries/useProfile.query'
+import { resolveSkin } from '@/lib/game/skins'
 import { TrackView } from '@/components/analytics/track-view'
 import { useCreateChallenge } from '@/features/game/mutations/useCreateChallenge.mutation'
 import { useRunSession, type TRunResult } from '@/features/game/hooks/useRunSession.hook'
@@ -60,6 +63,8 @@ function ResultPanel({ snapshot, events, result }: { snapshot: TGameSnapshot; ev
   const router = useRouter()
   const { clear } = useGameStore()
   const createChallenge = useCreateChallenge()
+  const { data: profile } = useProfile()
+  const cardSkin = resolveSkin(profile?.cosmetics.equipped.card, profile?.plan)
   const [sharedUrl, setSharedUrl] = useState<string | null>(null)
   const [challengeError, setChallengeError] = useState<string | null>(null)
   const [display, setDisplay] = useState<number | null>(null)
@@ -119,7 +124,7 @@ function ResultPanel({ snapshot, events, result }: { snapshot: TGameSnapshot; ev
           ? 'DEAD HEAT.'
           : 'RUN REJECTED'
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center animate-reveal">
+    <SkinCardFrame skin={cardSkin} className="flex flex-1 flex-col items-center justify-center gap-4 p-5 text-center animate-reveal">
       <TrackView name="result_viewed" props={viewProps} />
       {challenge ? (
         <>
@@ -148,6 +153,13 @@ function ResultPanel({ snapshot, events, result }: { snapshot: TGameSnapshot; ev
         </p>
       )}
       {metricsLine && <p className="text-xs text-ghost-muted">{metricsLine}</p>}
+      <button
+        type="button"
+        onClick={() => leave('/play')}
+        className="flex min-h-12 w-full items-center justify-center rounded-control border border-white/15 px-5 text-sm font-600"
+      >
+        PLAY AGAIN · PRACTICE
+      </button>
       {sharedUrl ? (
         <div className="w-full">
           <ShareButtons
@@ -178,7 +190,7 @@ function ResultPanel({ snapshot, events, result }: { snapshot: TGameSnapshot; ev
           </button>
         </div>
       )}
-    </div>
+    </SkinCardFrame>
   )
 }
 
@@ -306,7 +318,7 @@ export function RunClient() {
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 py-4 sm:max-w-2xl">
         <div className="flex items-center justify-between py-2">
           <p className="text-[11px] uppercase tracking-[0.18em] text-spectral-cyan">
-            {snapshot.game.gameId} · ranked
+            {snapshot.game.gameId} · {snapshot.mode ?? (snapshot.challenge ? 'challenge' : 'run')}
           </p>
           <Link href="/" className="text-xs text-ghost-muted">
             Quit

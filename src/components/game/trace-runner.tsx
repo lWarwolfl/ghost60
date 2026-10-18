@@ -15,6 +15,7 @@ import {
   type TRivalPoint
 } from '@/games/trace/table'
 import { audio } from '@/lib/game/audio'
+import { gameplayLoop, drawFeedback } from '@/lib/game/gameplay-motion'
 
 function fitCanvas(canvas: HTMLCanvasElement) {
   const dpr = Math.min(2, window.devicePixelRatio || 1)
@@ -65,7 +66,6 @@ export function TraceRunner({
     fitCanvas(canvas)
     const ro = new ResizeObserver(() => fitCanvas(canvas))
     ro.observe(canvas)
-    let raf = 0
     const draw = () => {
       const elapsed = session.getElapsed()
       const w = canvas.width
@@ -152,11 +152,11 @@ export function TraceRunner({
       if (gatesRef.current) {
         gatesRef.current.textContent = `GATES ${passed}/${gates.length}`
       }
-      raf = requestAnimationFrame(draw)
+      return elapsed < durationMs
     }
-    raf = requestAnimationFrame(draw)
+    const stop = gameplayLoop(draw)
     return () => {
-      cancelAnimationFrame(raf)
+      stop()
       ro.disconnect()
     }
   }, [config, durationMs, gates, session, rivalPath])
@@ -181,7 +181,7 @@ export function TraceRunner({
     drawingRef.current = true
     lastRef.current = p
     passedAtDown.current = passedGates(gates, samplesOf(session.eventsRef.current))
-    session.logEvent({ type: 'pointer_down', p })
+    if (session.logEvent({ type: 'pointer_down', p }) < 0) return
     scoreNow()
   }
 
@@ -243,7 +243,7 @@ export function TraceRunner({
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex items-center justify-between px-1 py-2 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-2 text-sm">
         <span ref={timeRef} className="tnum text-ghost-muted">
           {(durationMs / 1000).toFixed(1)}s
         </span>
@@ -259,6 +259,7 @@ export function TraceRunner({
         ref={canvasRef}
         role="application"
         aria-label="Trace corridor. Drag through the gates in order. Arrows move the cursor, Space starts, Enter lifts."
+        style={{ opacity: session.phase === 'finishing' ? 0.6 : 1, transition: 'opacity 120ms linear' }}
         className="min-h-75 w-full flex-1 touch-none rounded-card border border-white/10 bg-ink-900"
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId)

@@ -176,10 +176,10 @@ export async function applyProgression(input: TProgressionInput): Promise<TProgr
     if (run.mode === 'ranked') unlockIds.add('first_trace')
   }
 
-  if (run.mode === 'challenge' && outcome && outcome !== 'invalid') {
+  if (outcome && outcome !== 'invalid') {
     unlockIds.add('echo_found')
     if (outcome === 'win' && input.attemptId) {
-      const dayStart = new Date(`${gameDate}T00:00:00Z`)
+      const dayStart = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`)
       const wins = await db
         .select({ amount: XpLedger.amount, createdAt: XpLedger.createdAt })
         .from(XpLedger)

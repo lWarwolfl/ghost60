@@ -31,6 +31,10 @@ function tone(freq: number, ms: number, delayMs = 0, gain = 0.12) {
   osc.stop(t0 + ms / 1000 + 0.02)
 }
 
+function haptic(pattern: number | number[]) {
+  if (typeof navigator !== 'undefined' && typeof window !== 'undefined' && window.localStorage.getItem('ghost60-haptics') === 'on') navigator.vibrate?.(pattern)
+}
+
 export const audio = {
   unlock() {
     ensureCtx()
@@ -38,20 +42,27 @@ export const audio = {
   tick() {
     tone(660, 60)
   },
+  rule() {
+    tone(740, 65)
+  },
   go() {
     tone(990, 120)
   },
   correct() {
+    haptic(10)
     tone(880, 70)
   },
   perfect() {
+    haptic([8, 25, 12])
     tone(880, 70)
-    tone(1320, 100, 60)
+    tone(1320, 70, 60)
   },
   miss() {
+    haptic(18)
     tone(180, 60, 0, 0.08)
   },
   finish() {
+    haptic(20)
     tone(520, 250)
   },
   win() {

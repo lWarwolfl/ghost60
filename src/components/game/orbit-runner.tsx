@@ -16,6 +16,7 @@ import {
   type TRivalNotch
 } from '@/games/orbit/table'
 import { audio } from '@/lib/game/audio'
+import { gameplayLoop, drawFeedback } from '@/lib/game/gameplay-motion'
 
 function fitCanvas(canvas: HTMLCanvasElement) {
   const dpr = Math.min(2, window.devicePixelRatio || 1)
@@ -27,7 +28,7 @@ function fitCanvas(canvas: HTMLCanvasElement) {
 
 const RAD = Math.PI / 180
 
-type TVerdict = { band: number; at: number; premature: boolean; missed: boolean }
+type TVerdict = { band: number; at: number; angle: number; premature: boolean; missed: boolean }
 
 export function OrbitRunner({
   game,
@@ -59,7 +60,6 @@ export function OrbitRunner({
       dims = fitCanvas(canvas)
     })
     ro.observe(canvas)
-    let raf = 0
     const draw = () => {
       const elapsed = session.getElapsed()
       const taps = session.eventsRef.current
@@ -81,13 +81,13 @@ export function OrbitRunner({
         verdictCache.current = {
           count: taps.length,
           verdicts: assigned.map((tapIndex, i) => {
-            if (tapIndex === -1) return { band: 0, at: -1, premature: false, missed: false }
+            if (tapIndex === -1) return { band: 0, at: -1, angle: 0, premature: false, missed: false }
             const tap = taps[tapIndex] as Extract<GameInputEvent, { type: 'tap' }>
             const target = targets[i]
-            if (tap.t < target.openMs) return { band: 0, at: tap.t, premature: true, missed: false }
-            if (tap.t > target.closeMs) return { band: 0, at: tap.t, premature: false, missed: true }
+            if (tap.t < target.openMs) return { band: 0, at: tap.t, angle: tap.value ?? target.angleDeg, premature: true, missed: false }
+            if (tap.t > target.closeMs) return { band: 0, at: tap.t, angle: tap.value ?? target.angleDeg, premature: false, missed: true }
             const angle = tap.value === undefined ? target.angleDeg : tap.value
-            return { band: orbitBand(angleDistDeg(angle, target.angleDeg), target), at: tap.t, premature: false, missed: false }
+            return { band: orbitBand(angleDistDeg(angle, target.angleDeg), target), at: tap.t, angle: tap.value ?? target.angleDeg, premature: false, missed: false }
           })
         }
       }
@@ -117,7 +117,7 @@ export function OrbitRunner({
       }
 
       const seen = visibleRivalNotches(targets, taps, rivalNotches)
-      ctx2d.fillStyle = '#f5f7ff'
+      ctx2d.fillStyle = 'rgba(169,139,255,0.45)'
       for (const n of seen) {
         const a = n.angleDeg * RAD
         ctx2d.beginPath()
@@ -133,27 +133,34 @@ export function OrbitRunner({
 
       for (let i = 0; i < verdicts.length; i += 1) {
         const v = verdicts[i]
-        if (v.at < 0 || v.premature || v.missed) continue
         const age = elapsed - v.at
-        if (age < 0 || age > (session.reduced ? 1 : ORBIT_VERDICT_MS)) continue
-        ctx2d.globalAlpha = session.reduced ? 1 : Math.max(0, 1 - age / ORBIT_VERDICT_MS)
-        ctx2d.strokeStyle = v.band >= 1000 ? '#c7ff5e' : v.band >= 650 ? '#62f7e6' : v.band > 0 ? '#a98bff' : '#ff668f'
-        ctx2d.lineWidth = lw * 2
-        ctx2d.beginPath()
-        ctx2d.arc(cx, cy, r, 0, Math.PI * 2)
-        ctx2d.stroke()
-        ctx2d.globalAlpha = 1
+        if (v.at < 0 || age < 0 || age >= 260) continue
+        const kind = v.premature || v.missed || !v.band ? 'miss' : v.band >= 1000 ? 'perfect' : 'good'
+        if (age < 150) {
+          ctx2d.strokeStyle = kind === 'perfect' ? '#c7ff5e' : kind === 'good' ? '#62f7e6' : '#ff668f'
+          ctx2d.lineWidth = lw * 2
+          const a = v.angle * RAD
+          ctx2d.beginPath()
+          ctx2d.moveTo(cx + (r - lw * 2) * Math.cos(a), cy + (r - lw * 2) * Math.sin(a))
+          ctx2d.lineTo(cx + (r + lw * 2) * Math.cos(a), cy + (r + lw * 2) * Math.sin(a))
+          ctx2d.stroke()
+          const target = targets[i]
+          ctx2d.beginPath()
+          ctx2d.arc(cx, cy, r, (target.angleDeg - target.edgeTolDeg) * RAD, (target.angleDeg + target.edgeTolDeg) * RAD)
+          ctx2d.stroke()
+        }
+        drawFeedback(ctx2d, { x: cx, y: cy + r * 1.25, radius: lw * 4, age, duration: 260, reduced: session.reduced, kind, label: v.premature ? 'EARLY' : v.missed ? 'LATE' : kind === 'miss' ? 'MISS' : `+${v.band}` })
       }
 
       if (timeRef.current) {
         const left = Math.max(0, durationMs - elapsed)
         timeRef.current.textContent = `${(left / 1000).toFixed(1)}s`
       }
-      raf = requestAnimationFrame(draw)
+      return elapsed < durationMs
     }
-    raf = requestAnimationFrame(draw)
+    const stop = gameplayLoop(draw)
     return () => {
-      cancelAnimationFrame(raf)
+      stop()
       ro.disconnect()
     }
   }, [durationMs, targets, session, rivalNotches])
@@ -177,7 +184,7 @@ export function OrbitRunner({
     } else {
       value = toIntAngle(markerAngleAt(elapsed))
     }
-    session.logEvent(p ? { type: 'tap', p, value } : { type: 'tap', value })
+    if (session.logEvent(p ? { type: 'tap', p, value } : { type: 'tap', value }) < 0) return
     const events = session.eventsRef.current
     const res = orbitEngine.scoreRun({ seed: game.seed, config, events, visibilityInterruptions: 0 })
     setScore(res.score)
@@ -214,7 +221,7 @@ export function OrbitRunner({
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex items-center justify-between px-1 py-2 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-2 text-sm">
         <span ref={timeRef} className="tnum text-ghost-muted">
           {(durationMs / 1000).toFixed(1)}s
         </span>
@@ -230,6 +237,7 @@ export function OrbitRunner({
         ref={canvasRef}
         role="application"
         aria-label="Orbit field. Tap when the marker enters the bright arc. Space taps at the marker."
+        style={{ opacity: session.phase === 'finishing' ? 0.6 : 1, transition: 'opacity 120ms linear' }}
         className="min-h-75 w-full flex-1 touch-none rounded-card border border-white/10 bg-ink-900"
         onPointerDown={(e) => tap(e.clientX, e.clientY)}
       />

@@ -13,7 +13,7 @@ import {
 import { getCurrentUser } from '@/lib/auth/server'
 import { getPlan } from '@/lib/game/entitlement'
 import { levelForXp } from '@/lib/game/progression'
-import { loadSkinCatalog } from '@/lib/game/skins'
+import { canEquip, loadSkinCatalog, resolveSkin } from '@/lib/game/skins'
 
 function shiftDay(dateStr: string, delta: number) {
   return new Date(new Date(`${dateStr}T00:00:00Z`).getTime() + delta * 86400000).toISOString().slice(0, 10)
@@ -70,17 +70,18 @@ export async function GET() {
         })
   const catalog = loadSkinCatalog()
   return NextResponse.json({
-    profile: profiles[0] ?? null,
+    plan,
+    profile: profiles[0] ? { ...profiles[0], activeGhostSkin: resolveSkin(profiles[0].activeGhostSkin, plan).id, activeCardSkin: resolveSkin(profiles[0].activeCardSkin, plan).id } : null,
     streak: streaks[0] ?? null,
     xpTotal,
     level: levelForXp(xpTotal),
     history: { locked: plan !== 'ghost_plus', days: 7 },
     cosmetics: {
       equipped: {
-        ghost: profiles[0]?.activeGhostSkin ?? null,
-        card: profiles[0]?.activeCardSkin ?? null
+        ghost: resolveSkin(profiles[0]?.activeGhostSkin, plan).id,
+        card: resolveSkin(profiles[0]?.activeCardSkin, plan).id
       },
-      catalog: catalog.skins.map((s) => ({ id: s.id, name: s.name, entitlement: s.entitlement, gradient: s.avatar.gradient }))
+      catalog: catalog.skins.map((s) => ({ ...s, unlocked: canEquip(plan, s.id), gradient: s.avatar.gradient }))
     },
     achievements: owned.map((o) => ({
       ...o,

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "format": "prettier . --ignore-unknown --write",
@@ -15,6 +15,7 @@
     "assets:upload": "node scripts/upload-campaign-assets.mjs",
     "content:check": "tsx scripts/import-schedule.ts --check",
     "content:import": "tsx scripts/import-schedule.ts",
+    "launch:status": "tsx scripts/launch-status.ts",
     "test": "vitest run",
     "test:e2e": "playwright test"
   },

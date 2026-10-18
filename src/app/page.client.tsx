@@ -1,10 +1,11 @@
+'use client'
+
 import Link from 'next/link'
 import { GameIcon } from '@/components/brand/game-icon'
 import { Ghost60Mark } from '@/components/brand/ghost60-mark'
-import { GhostAvatar } from '@/components/brand/ghost-avatar'
-import { StreakWisp } from '@/components/brand/streak-wisp'
 import { ResetCountdown } from '@/components/game/reset-countdown'
-import { PrefetchGame } from '@/components/game/prefetch-game'
+import { useCharges } from '@/features/game/queries/useCharges.query'
+import { useTodayGame } from '@/features/game/queries/useTodayGame.query'
 import { Footer } from '@/components/layout/footer'
 import { Header } from '@/components/layout/header'
 
@@ -12,7 +13,7 @@ const STEPS = [
   {
     n: '01',
     title: 'See today’s game',
-    body: 'Same seed, same config, same 45 seconds for everyone. No retries on ranked.'
+    body: 'Same seed, same config, same duration for everyone. No retries on ranked.'
   },
   {
     n: '02',
@@ -27,6 +28,8 @@ const STEPS = [
 ]
 
 export function HomeClient() {
+  const { data: today, error, isPending, isError, refetch } = useTodayGame()
+  const charges = useCharges()
   return (
     <div className="flex min-h-dvh flex-col bg-ink-950 text-ghost-text">
       <Header />
@@ -48,7 +51,6 @@ export function HomeClient() {
             </p>
           </div>
           <div className="flex flex-col gap-3">
-            <PrefetchGame />
             <Link
               href="/play"
               className="flex min-h-12 items-center justify-center rounded-control bg-spectral-cyan px-5 font-display text-sm font-800 tracking-[0.14em] text-ink-950 transition-transform active:scale-[0.99]"
@@ -57,43 +59,31 @@ export function HomeClient() {
             </Link>
             <ResetCountdown />
           </div>
-          <dl className="grid grid-cols-3 gap-3" aria-label="Your week so far">
-            {[
-              { k: 'Streak', v: '0 days', icon: <StreakWisp /> },
-              { k: 'Best', v: '—', icon: <GhostAvatar motion="none" className="size-5" /> },
-              { k: 'League', v: 'No league', icon: null }
-            ].map((s) => (
-              <div
-                key={s.k}
-                className="rounded-card border border-white/10 bg-surface-800 px-3 py-3"
-              >
-                <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.14em] text-ghost-muted">
-                  {s.icon}
-                  {s.k}
-                </dt>
-                <dd className="tnum mt-1 text-sm font-600">{s.v}</dd>
-              </div>
-            ))}
-          </dl>
         </section>
 
         <section
           aria-labelledby="today"
           className="rounded-card border border-white/10 bg-surface-800 p-5"
         >
-          <div className="flex items-start justify-between gap-4">
+          {isPending && <p role="status" className="text-sm text-ghost-muted">Loading today’s game…</p>}
+          {isError && (
+            <div role="alert" className="text-sm text-rival-coral">
+              <p>{error.message}</p>
+              <button type="button" onClick={() => void refetch()} className="min-h-11 underline">Retry today’s game</button>
+            </div>
+          )}
+          {today && !isError && <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1">
               <p id="today" className="text-[11px] uppercase tracking-[0.18em] text-spectral-cyan">
-                Today · PULSE · 45s
+                Today · {today.gameId} · {Math.round(today.durationMs / 1000)}s
               </p>
-              <h2 className="font-display text-2xl font-800">Tap at alignment</h2>
+              <h2 className="font-display text-2xl font-800">{today.title}</h2>
               <p className="text-sm leading-6 text-ghost-muted">
-                Concentric ring breathes toward the target band. Timing precision only — no
-                color-only reads.
+                {today.instruction}
               </p>
             </div>
-            <GameIcon game="pulse" className="size-12 shrink-0" />
-          </div>
+            <GameIcon game={today.gameId} className="size-12 shrink-0" />
+          </div>}
           <div className="mt-4 flex items-center gap-3">
             <Link
               href="/play"
@@ -102,7 +92,7 @@ export function HomeClient() {
               Preflight instructions
             </Link>
             <span className="tnum rounded-control bg-surface-700 px-3 py-2 text-xs text-ghost-muted">
-              1 ranked left
+              {charges.data && !charges.isError ? charges.data.rankedAvailable ? '1 ranked available' : 'Ranked spent' : '1 ranked daily'}
             </span>
           </div>
         </section>
@@ -133,14 +123,14 @@ export function HomeClient() {
             TRAIN AGAINST YOUR PAST.
           </h2>
           <p className="mt-1 text-sm leading-6 text-ghost-muted">
-            Ghost+ archive, unlimited practice, past-self races and skill history. Server-locked —
-            ranked fairness never changes.
+            Ghost+ unlocks unlimited practice. Everyone still gets exactly one ranked attempt
+            per UTC day — ranked fairness never changes.
           </p>
           <Link
             href="/ghost-plus"
             className="mt-3 inline-flex min-h-11 items-center justify-center rounded-control border border-spectral-violet/50 px-4 text-sm font-600 text-spectral-violet"
           >
-            See locked Ghost+ preview
+            Explore Ghost+
           </Link>
         </section>
       </main>

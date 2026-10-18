@@ -6,28 +6,32 @@ import { WrappedProviders } from '@/components/providers/wrapped-providers'
 const display = Archivo({
   variable: '--font-display',
   subsets: ['latin'],
-  weight: ['700', '800']
+  weight: ['700', '800'],
 })
 
 const body = Space_Grotesk({
   variable: '--font-body',
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700']
+  weight: ['400', '500', '600', '700'],
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ?? process.env.BETTER_AUTH_URL ?? 'http://localhost:3104'
+  ),
   title: 'Ghost60 — One minute. One run.',
-  description: 'Everyone gets the same game. You get one ranked attempt. Leave a ghost. Send it to a friend.',
+  description:
+    'Everyone gets the same game. You get one ranked attempt. Leave a ghost. Send it to a friend.',
   applicationName: 'Ghost60',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Ghost60' },
-  icons: { icon: '/icons/icon-192.png', apple: '/icons/apple-touch-icon.png' }
+  icons: { icon: '/icons/icon-192.png', apple: '/icons/apple-touch-icon.png' },
 }
 
 export const viewport: Viewport = {
   themeColor: '#070912',
   width: 'device-width',
   initialScale: 1,
-  viewportFit: 'cover'
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {

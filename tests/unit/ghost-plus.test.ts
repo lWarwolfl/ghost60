@@ -5,8 +5,8 @@ import { canEquip, freeSkins, getSkin, loadSkinCatalog } from '@/lib/game/skins'
 
 const catalog = loadSkinCatalog()
 
-describe('ghost+ lock invariants (no billing this phase)', () => {
-  it('ships zero stripe wiring', () => {
+describe('ghost+ billing without additional dependencies', () => {
+  it('uses hosted routes without installing the Stripe SDK', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8')) as {
       dependencies: Record<string, string>
     }
@@ -20,7 +20,9 @@ describe('ghost+ lock invariants (no billing this phase)', () => {
       }
     }
     walk(path.join(process.cwd(), 'src', 'app', 'api'))
-    expect(apiFiles.some((f) => f.includes('billing') || f.includes('stripe') || f.includes('webhook'))).toBe(false)
+    expect(apiFiles.some((f) => f.includes('billing') && f.includes('checkout'))).toBe(true)
+    expect(apiFiles.some((f) => f.includes('billing') && f.includes('portal'))).toBe(true)
+    expect(apiFiles.some((f) => f.includes('billing') && f.includes('webhook'))).toBe(true)
   })
 })
 

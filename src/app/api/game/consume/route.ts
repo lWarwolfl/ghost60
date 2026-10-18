@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { db } from '@/drizzle'
-import { RunSession } from '@/drizzle/schema'
+import { RunSession, User } from '@/drizzle/schema'
 import { ConsumeRequestSchema } from '@/features/game/schemas/session.schema'
 import { getCurrentUser } from '@/lib/auth/server'
 import { verifySessionToken } from '@/lib/game/token'
@@ -21,7 +21,9 @@ export async function POST(req: Request) {
   if (!payload || payload.userId !== user.id) {
     return NextResponse.json({ error: 'bad-token' }, { status: 401 })
   }
-  const rows = await db.select().from(RunSession).where(eq(RunSession.id, payload.sessionId))
+  return db.transaction(async (tx) => {
+  await tx.select({ id: User.id }).from(User).where(eq(User.id, user.id)).for('update')
+  const rows = await tx.select().from(RunSession).where(eq(RunSession.id, payload.sessionId))
   const session = rows[0]
   if (!session || session.userId !== user.id) {
     return NextResponse.json({ error: 'bad-session' }, { status: 404 })
@@ -31,9 +33,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'session-expired' }, { status: 410 })
   }
   if (session.consumedAt) return NextResponse.json({ consumed: true })
-  await db
+  await tx
     .update(RunSession)
     .set({ consumedAt: new Date(), state: 'consumed' })
     .where(eq(RunSession.id, session.id))
   return NextResponse.json({ consumed: true })
+  })
 }

@@ -8,10 +8,11 @@ session, so `user_id` is the primary identity key and `anon_id_hash` bridges
 pre/post-link analysis (the hash input is a random client UUID, stable across
 link since localStorage survives it).
 
-Billing events (`checkout_started`, `subscription_*`) are intentionally absent
-until Stripe launches; only `paywall_viewed` is tracked. `score_validated` /
-`score_rejected` are server-known and should ship later as server-side emission
-from the submit route — do not accept them as client claims.
+Billing routes now support configured Stripe Checkout and verified subscription updates;
+see `BILLING.md`. Billing events are not yet emitted into this client analytics stream.
+`score_validated` / `score_rejected` are server-known and should ship later as server-side emission
+from the submit route — do not accept them as client claims. Use `npm run launch:status`
+for authoritative valid/invalid run and completion metrics instead of trusting client events.
 
 ## Activation (did a visitor become a player?)
 

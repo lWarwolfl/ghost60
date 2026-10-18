@@ -1,7 +1,9 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { QUERY_KEYS } from '@/features/game/queries/keys'
+import type { TSkin, TSkinEntitlement } from '@/lib/game/skins'
 
 export type TProfile = {
+  plan: TSkinEntitlement
   profile: { handle: string | null; displayName: string | null } | null
   streak: { currentCount: number; longestCount: number; graceTokens: number } | null
   xpTotal: number
@@ -9,7 +11,7 @@ export type TProfile = {
   history: { locked: boolean; days: number }
   cosmetics: {
     equipped: { ghost: string | null; card: string | null }
-    catalog: Array<{ id: string; name: string; entitlement: string; gradient: [string, string] }>
+    catalog: Array<TSkin & { unlocked: boolean; gradient: [string, string] }>
   }
   achievements: Array<{ achievementId: string; detail: { title: string; description: string } | null }>
   recentRuns: Array<{

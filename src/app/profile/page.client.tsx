@@ -2,6 +2,9 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { SkinPreview } from '@/components/game/skin-preview'
+import { SkinCardFrame } from '@/components/game/skin-card-frame'
+import { resolveSkin } from '@/lib/game/skins'
 import { GhostAvatar } from '@/components/brand/ghost-avatar'
 import { StreakWisp } from '@/components/brand/streak-wisp'
 import { useEquipCosmetics } from '@/features/game/mutations/useEquipCosmetics.mutation'
@@ -19,6 +22,7 @@ function dayStrings(count: number) {
 export function ProfileClient() {
   const { data, isLoading, isError } = useProfile()
   const equip = useEquipCosmetics()
+  const [slot, setSlot] = useState<'ghost' | 'card'>('ghost')
   const [cosError, setCosError] = useState<string | null>(null)
   if (isLoading) return <p className="text-sm text-ghost-muted">Loading profile…</p>
   if (isError || !data) return <p className="text-sm text-rival-coral">Could not load profile.</p>
@@ -29,10 +33,11 @@ export function ProfileClient() {
     data.cosmetics.catalog.find((s) => s.id === data.cosmetics.equipped.ghost)?.gradient ??
     (['#62F7E6', '#A98BFF'] as [string, string])
 
+  const cardSkin = resolveSkin(data.cosmetics.equipped.card, data.plan)
   const chooseSkin = async (skinId: string) => {
     setCosError(null)
     try {
-      await equip.mutateAsync({ slot: 'ghost', skinId })
+      await equip.mutateAsync({ slot, skinId })
     } catch (e) {
       setCosError(e instanceof Error && e.message === 'ghost-plus-locked' ? 'That skin needs Ghost+.' : 'Could not equip skin.')
     }
@@ -42,7 +47,7 @@ export function ProfileClient() {
     <div className="flex flex-col gap-4">
       <section aria-label="Identity" className="rounded-card border border-white/10 bg-surface-800 p-5">
         <div className="flex items-center gap-3">
-          <GhostAvatar motion="none" className="size-12" gradient={equippedGradient} />
+          <GhostAvatar skin={data.cosmetics.equipped.ghost ?? undefined} motion="none" className="size-12" gradient={equippedGradient} />
           <div>
             <p className="font-display text-2xl font-800">{data.profile?.handle ?? 'ghost'}</p>
             <p className="mt-1 text-sm text-ghost-muted">
@@ -86,30 +91,40 @@ export function ProfileClient() {
       </section>
 
       <section aria-label="Ghost skin" className="rounded-card border border-white/10 bg-ink-900 p-5">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-ghost-muted">Ghost skin</p>
-        <ul className="mt-3 grid grid-cols-3 gap-2">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-ghost-muted">Cosmetics · visual only</p>
+        <div className="mt-3 flex gap-2" role="group" aria-label="Cosmetic slot">
+          {(['ghost', 'card'] as const).map((value) => (
+            <button key={value} type="button" aria-pressed={slot === value} onClick={() => setSlot(value)} className={`min-h-11 flex-1 rounded-control border px-3 text-sm ${slot === value ? 'border-spectral-cyan text-spectral-cyan' : 'border-white/15 text-ghost-muted'}`}>
+              {value === 'ghost' ? 'Ghost trail' : 'Result card'}
+            </button>
+          ))}
+        </div>
+        <SkinCardFrame skin={cardSkin} className="mt-3 p-3 text-center text-xs text-ghost-muted">Equipped result card · {cardSkin.name}</SkinCardFrame>
+        <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {data.cosmetics.catalog.map((s) => {
-            const lockedSkin = s.entitlement !== 'free'
-            const active = data.cosmetics.equipped.ghost === s.id
+            const lockedSkin = !s.unlocked
+            const active = data.cosmetics.equipped[slot] === s.id
             return (
               <li key={s.id}>
                 <button
                   type="button"
-                  disabled={equip.isPending}
+                  disabled={equip.isPending || lockedSkin}
                   onClick={() => void chooseSkin(s.id)}
                   aria-pressed={active}
-                  className={`flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-control border px-2 py-2 text-xs ${
+                  aria-label={`${s.name}${lockedSkin ? ' · locked, needs Ghost+' : active ? ' · equipped' : ' · equip'}`}
+                  className={`flex min-h-16 min-w-0 w-full flex-col items-center justify-center gap-1 rounded-control border px-2 py-2 text-xs ${
                     active ? 'border-spectral-cyan/60 bg-surface-800' : 'border-white/10 bg-surface-800/50'
                   } disabled:opacity-60`}
                 >
-                  <GhostAvatar motion="none" className="size-8" gradient={s.gradient} />
+                  {slot === 'ghost' ? <SkinPreview skin={s} /> : <SkinCardFrame skin={s} className="flex h-24 w-full items-center justify-center font-display text-lg">60</SkinCardFrame>}
                   <span className="font-600">{s.name}</span>
-                  {lockedSkin && <span className="text-[10px] uppercase tracking-wider text-spectral-violet">Ghost+</span>}
+                  <span className="text-[10px] uppercase tracking-wider text-spectral-violet">{lockedSkin ? 'Ghost+ · locked' : active ? 'Equipped' : s.entitlement === 'ghost_plus' ? 'Ghost+ · unlocked' : 'Free'}</span>
                 </button>
               </li>
             )
           })}
         </ul>
+        {data.plan !== 'ghost_plus' && <Link href="/ghost-plus" className="mt-3 inline-flex min-h-11 items-center text-xs text-spectral-violet underline">Unlock six more styles with Ghost+</Link>}
         {cosError && (
           <p role="alert" className="mt-2 text-sm text-rival-coral">
             {cosError}{' '}

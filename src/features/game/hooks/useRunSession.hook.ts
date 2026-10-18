@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSubmitRun } from '@/features/game/mutations/useSubmitRun.mutation'
 import type { TPublicGame } from '@/features/game/store/game-store'
 import { audio } from '@/lib/game/audio'
+import { countdownState, inputTime } from '@/lib/game/gameplay-motion'
 import { clearPending, loadPending, savePending } from '@/lib/game/pending-store'
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion.hook'
 import type { GameInputEvent } from '@/games/core/game-module'
@@ -21,7 +22,7 @@ export type TRunResult = {
 
 type TLogInput = Omit<Extract<GameInputEvent, { type: 'tap' }>, 't'> | Omit<Extract<GameInputEvent, { type: 'choice' }>, 't'> | Omit<Extract<GameInputEvent, { type: 'pointer_down' | 'pointer_move' | 'pointer_up' }>, 't'>
 
-const COUNT_MS = 700
+const COUNT_MS = 1000
 const GO_MS = 250
 
 async function consume(token: string) {
@@ -39,6 +40,8 @@ async function consume(token: string) {
 export function useRunSession(game: TPublicGame, token: string) {
   const [phase, setPhase] = useState<TRunPhase>('countdown')
   const [count, setCount] = useState(3)
+  const [countVisible, setCountVisible] = useState(true)
+  const acceptingRef = useRef(false)
   const [result, setResult] = useState<TRunResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const eventsRef = useRef<GameInputEvent[]>([])
@@ -54,8 +57,8 @@ export function useRunSession(game: TPublicGame, token: string) {
 
   const getElapsed = useCallback(() => {
     if (!runStartRef.current) return 0
-    return Math.max(0, performance.now() - runStartRef.current)
-  }, [])
+    return Math.min(game.durationMs, Math.max(0, performance.now() - runStartRef.current))
+  }, [game.durationMs])
 
   const doSubmit = useCallback(
     async (events: GameInputEvent[], visibilityInterruptions: number) => {
@@ -72,7 +75,7 @@ export function useRunSession(game: TPublicGame, token: string) {
           xpAwarded: data.progression?.xpAwarded ?? 0
         })
         setPhase('result')
-        if (data.run.valid && data.run.validatedScore > 0) audio.win()
+        if (data.run.valid && (data.outcome === 'win' || data.progression?.isPersonalBest)) audio.win()
       } catch (e) {
         if (e instanceof TypeError) {
           await savePending({ token, gameId: game.gameId, events, visibilityInterruptions, savedAt: Date.now() }).catch(() => undefined)
@@ -88,35 +91,47 @@ export function useRunSession(game: TPublicGame, token: string) {
 
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = []
-    const steps: Array<[number, () => void]> = [
-      [COUNT_MS, () => { setCount(2); audio.tick() }],
-      [COUNT_MS * 2, () => { setCount(1); audio.tick() }],
-      [COUNT_MS * 3, () => { setCount(0); audio.go() }],
-      [
-        COUNT_MS * 3 + GO_MS,
-        () => {
-          runStartRef.current = performance.now()
+    const countdownStart = performance.now()
+    runStartRef.current = countdownStart + COUNT_MS * 3
+    const updateCount = () => {
+      const state = countdownState(performance.now() - countdownStart)
+      setCount(state.count)
+      setCountVisible(state.visible)
+    }
+    for (const at of [700, 1000, 1700, 2000, 2700, 3000, 3000 + GO_MS]) {
+      timers.push(setTimeout(() => {
+        updateCount()
+        if (at === 1000 || at === 2000) audio.tick()
+        if (at === 3000) {
+          acceptingRef.current = true
           setPhase('running')
+          audio.go()
         }
-      ]
-    ]
+      }, at))
+    }
+    timers.push(setTimeout(() => {
+      if (!consumedRef.current) {
+        consumedRef.current = true
+        void consume(token)
+      }
+    }, COUNT_MS * 3 + 3000))
     audio.tick()
-    for (const [at, fn] of steps) timers.push(setTimeout(fn, at))
-    const fin = setTimeout(() => {
+    timers.push(setTimeout(() => {
+      acceptingRef.current = false
       setPhase('finishing')
       audio.finish()
-      void doSubmit(eventsRef.current, visRef.current)
-    }, COUNT_MS * 3 + GO_MS + game.durationMs)
-    timers.push(fin)
+      timers.push(setTimeout(() => void doSubmit([...eventsRef.current], visRef.current), 120))
+    }, COUNT_MS * 3 + game.durationMs))
     const onVis = () => {
-      if (document.visibilityState === 'hidden') visRef.current += 1
+      if (document.visibilityState === 'hidden' && acceptingRef.current) visRef.current += 1
     }
     document.addEventListener('visibilitychange', onVis)
     return () => {
+      acceptingRef.current = false
       for (const t of timers) clearTimeout(t)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [doSubmit, game.durationMs])
+  }, [doSubmit, game.durationMs, token])
 
   useEffect(() => {
     const onOnline = () => {
@@ -131,8 +146,8 @@ export function useRunSession(game: TPublicGame, token: string) {
 
   const logEvent = useCallback(
     (input: TLogInput) => {
-      if (!runStartRef.current) return -1
-      const t = Math.max(0, Math.round(performance.now() - runStartRef.current))
+      const t = inputTime(performance.now(), runStartRef.current, game.durationMs, acceptingRef.current)
+      if (t < 0) return -1
       eventsRef.current.push({ ...input, t } as GameInputEvent)
       if (!consumedRef.current) {
         consumedRef.current = true
@@ -140,7 +155,7 @@ export function useRunSession(game: TPublicGame, token: string) {
       }
       return t
     },
-    [token]
+    [token, game.durationMs]
   )
 
   const retryPending = useCallback(async () => {
@@ -154,8 +169,8 @@ export function useRunSession(game: TPublicGame, token: string) {
   }, [doSubmit, token])
 
   return useMemo(
-    () => ({ phase, count, result, error, eventsRef, logEvent, getElapsed, retryPending, reduced }),
-    [phase, count, result, error, logEvent, getElapsed, retryPending, reduced]
+    () => ({ phase, count, countVisible, result, error, eventsRef, logEvent, getElapsed, retryPending, reduced }),
+    [phase, count, countVisible, result, error, logEvent, getElapsed, retryPending, reduced]
   )
 }
 

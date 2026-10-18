@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TRunSession } from '@/features/game/hooks/useRunSession.hook'
 import type { TPublicGame } from '@/features/game/store/game-store'
 import { audio } from '@/lib/game/audio'
+import { gameplayLoop, drawFeedback } from '@/lib/game/gameplay-motion'
 import { createRng, hashSeed } from '@/games/core/rng'
 import { snapEngine, type TSnapConfig } from '@/games/snap/engine'
 
@@ -87,7 +88,7 @@ function drawShape(ctx: CanvasRenderingContext2D, shape: TShape, cx: number, cy:
 export function SnapRunner({ game, session }: { game: TPublicGame; session: TRunSession }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
-  const verdictRef = useRef<{ t: number; ok: boolean } | null>(null)
+  const verdictRef = useRef<{ t: number; ok: boolean; index: number; round: number } | null>(null)
   const labelRef = useRef('')
   const [score, setScore] = useState(0)
   const [roundLabel, setRoundLabel] = useState('')
@@ -131,7 +132,6 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
       view = fit()
     })
     ro.observe(canvas)
-    let raf = 0
     const draw = () => {
       const elapsed = session.getElapsed()
       const { cssW, cssH, dpr } = view
@@ -142,26 +142,42 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
       if (round && elapsed >= round.presentedMs) {
         const { target, cells } = getLayout(idx, round.options, round.correct, cssW, cssH)
         setLabel(`TAP THE ${target.toUpperCase()}`)
-        const v = verdictRef.current
-        for (let i = 0; i < cells.length; i += 1) {
-          const c = cells[i]
-          let fill = '#f5f7ff'
-          let outline = 'rgba(245,247,255,0.25)'
-          if (v && elapsed - v.t < (session.reduced ? 60 : 150)) {
-            const chosen = session.eventsRef.current[session.eventsRef.current.length - 1]
-            if (chosen && (chosen as { value?: number }).value === i) {
-              fill = v.ok ? '#c7ff5e' : '#f5f7ff'
-              outline = v.ok ? '#c7ff5e' : '#ff668f'
-            }
-          }
-          drawShape(ctx2d, c.shape, c.cx, c.cy, c.r, fill, outline, 3)
+        const spawn = Math.min(1, Math.max(0, (elapsed - round.presentedMs) / 70))
+        for (const c of cells) {
+          ctx2d.save()
+          ctx2d.globalAlpha = spawn
+          const scale = session.reduced ? 1 : 0.96 + 0.04 * spawn
+          drawShape(ctx2d, c.shape, c.cx, c.cy, c.r * scale, '#f5f7ff', 'rgba(245,247,255,0.25)', 3)
+          ctx2d.restore()
         }
+        const remaining = Math.max(0, 1 - (elapsed - round.presentedMs) / round.windowMs)
+        ctx2d.strokeStyle = '#62f7e6'
+        ctx2d.lineWidth = 2
+        ctx2d.beginPath()
+        ctx2d.arc(cssW / 2, cssH / 2, Math.min(cssW, cssH) * 0.46, -Math.PI / 2, -Math.PI / 2 + remaining * Math.PI * 2)
+        ctx2d.stroke()
         const late = elapsed > round.presentedMs + round.windowMs
         if (late && timeRef.current) timeRef.current.textContent = 'too late'
       } else if (round) {
         setLabel('GET READY')
       } else {
         setLabel('DONE — WAITING FOR CLOCK')
+      }
+      const verdict = verdictRef.current
+      if (verdict) {
+        const age = elapsed - verdict.t
+        if (age >= 0 && age < 140) {
+          const old = config.rounds[verdict.round]
+          const selected = getLayout(verdict.round, old.options, old.correct, cssW, cssH).cells[verdict.index]
+          if (selected) {
+            const scale = session.reduced || !verdict.ok ? 1 : age < 70 ? 1 - 0.08 * age / 70 : 0.92 + 0.12 * (age - 70) / 70
+            ctx2d.save()
+            ctx2d.globalAlpha = session.reduced ? 1 : 1 - age / 140
+            drawShape(ctx2d, selected.shape, selected.cx, selected.cy, selected.r * scale, verdict.ok ? '#c7ff5e' : '#f5f7ff', verdict.ok ? '#c7ff5e' : '#ff668f', 3)
+            ctx2d.restore()
+            drawFeedback(ctx2d, { x: selected.cx, y: selected.cy, radius: selected.r, age, duration: 120, reduced: session.reduced, kind: verdict.ok ? 'good' : 'miss', label: verdict.ok ? 'HIT' : 'MISS' })
+          }
+        }
       }
       if (timeRef.current) {
         const late = round !== undefined && elapsed > round.presentedMs + round.windowMs
@@ -171,11 +187,11 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
           timeRef.current.textContent = `${(left / 1000).toFixed(1)}s`
         }
       }
-      raf = requestAnimationFrame(draw)
+      return elapsed < durationMs
     }
-    raf = requestAnimationFrame(draw)
+    const stop = gameplayLoop(draw)
     return () => {
-      cancelAnimationFrame(raf)
+      stop()
       ro.disconnect()
     }
   }, [config, durationMs, getLayout, session])
@@ -186,14 +202,14 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
     if (!canvas) return
     const idx = session.eventsRef.current.length
     const round = config.rounds[idx]
-    if (!round) return
+    if (!round || index < 0 || index >= round.options || session.getElapsed() < round.presentedMs) return
     audio.unlock()
-    session.logEvent({ type: 'choice', value: index })
+    if (session.logEvent({ type: 'choice', value: index }) < 0) return
     const inWindow =
       session.eventsRef.current[session.eventsRef.current.length - 1].t >= round.presentedMs &&
       session.eventsRef.current[session.eventsRef.current.length - 1].t <= round.presentedMs + round.windowMs
     const ok = inWindow && index === round.correct
-    verdictRef.current = { t: session.eventsRef.current[session.eventsRef.current.length - 1].t, ok }
+    verdictRef.current = { t: session.eventsRef.current[session.eventsRef.current.length - 1].t, ok, index, round: idx }
     const res = snapEngine.scoreRun({ seed: game.seed, config, events: session.eventsRef.current, visibilityInterruptions: 0 })
     setScore(res.score)
     if (ok) {
@@ -224,7 +240,7 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const n = Number.parseInt(e.key, 10)
-      if (n >= 1 && n <= 7) choose(n - 1)
+      if (n >= 1 && n <= 8) choose(n - 1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -232,7 +248,7 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex items-center justify-between px-1 py-2 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-2 text-sm">
         <span ref={timeRef} className="tnum text-ghost-muted">
           {(game.durationMs / 1000).toFixed(1)}s
         </span>
@@ -246,11 +262,12 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
       <canvas
         ref={canvasRef}
         role="application"
-        aria-label="Snap field. Tap the shape named in the rule. Keys 1 to 7 work too."
+        aria-label="Snap field. Tap the shape named in the rule. Keys 1 to 8 work too."
+        style={{ opacity: session.phase === 'finishing' ? 0.6 : 1, transition: 'opacity 120ms linear' }}
         className="min-h-75 w-full flex-1 touch-none rounded-card border border-white/10 bg-ink-900"
         onPointerDown={(e) => tapAt(e.clientX, e.clientY)}
       />
-      <p className="py-2 text-center text-xs text-ghost-muted">Rule never uses color alone · keys 1–7 work too</p>
+      <p className="py-2 text-center text-xs text-ghost-muted">Rule never uses color alone · keys 1–8 work too</p>
     </div>
   )
 }
