@@ -4,13 +4,13 @@ import './globals.css'
 import { WrappedProviders } from '@/components/providers/wrapped-providers'
 
 const display = Archivo({
-  variable: '--font-display',
+  variable: '--font-archivo',
   subsets: ['latin'],
   weight: ['700', '800'],
 })
 
 const body = Space_Grotesk({
-  variable: '--font-body',
+  variable: '--font-space-grotesk',
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
 })

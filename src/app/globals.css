@@ -13,8 +13,11 @@
   --color-signal-lime: #c7ff5e;
   --color-rival-coral: #ff668f;
   --color-signal-amber: #ffbe5c;
-  --font-display: var(--font-display), system-ui, sans-serif;
-  --font-body: var(--font-body), system-ui, sans-serif;
+  --font-weight-400: 400;
+  --font-weight-500: 500;
+  --font-weight-600: 600;
+  --font-weight-700: 700;
+  --font-weight-800: 800;
   --radius-card: 18px;
   --radius-control: 12px;
   --motion-instant: 70ms;
@@ -31,6 +34,11 @@
   --animate-reveal: reveal 520ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+@theme inline {
+  --font-display: var(--font-archivo), system-ui, sans-serif;
+  --font-body: var(--font-space-grotesk), system-ui, sans-serif;
+}
+
 html {
   scrollbar-gutter: stable;
 }
@@ -38,7 +46,7 @@ html {
 body {
   background: var(--color-ink-950);
   color: var(--color-ghost-text);
-  font-family: var(--font-body), system-ui, sans-serif;
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
   text-wrap: pretty;
 }
 

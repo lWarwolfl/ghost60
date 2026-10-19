@@ -3,11 +3,6 @@ import type { NextConfig } from 'next'
 const nextConfig: NextConfig = {
   cacheComponents: false,
   poweredByHeader: false,
-  turbopack: {
-    rules: {
-      '*.css': { loaders: ['@tailwindcss/turbopack'], as: '*.css' },
-    },
-  },
   async headers() {
     return [
       {
