@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { QUERY_KEYS } from '@/features/game/queries/keys'
 import { Footer } from '@/components/layout/footer'
 import { TrackView } from '@/components/analytics/track-view'
 import { Header } from '@/components/layout/header'
@@ -19,11 +21,13 @@ export function GhostPlusClient({
   testPayments: boolean
 }) {
   const { data: session, isPending: sessionPending } = authClient.useSession()
+  const queryClient = useQueryClient()
   const charges = useCharges()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const linked = Boolean(session?.user && !session.user.isAnonymous)
-  const active = charges.data?.plan === 'ghost_plus'
+  const plan = charges.data?.plan
+  const active = plan === 'ghost_plus'
   const userId = session?.user.id
   const { refetch } = charges
 
@@ -34,6 +38,10 @@ export function GhostPlusClient({
     const timer = setInterval(() => void refetch(), 5000)
     return () => clearInterval(timer)
   }, [awaitingPayment, userId, active, refetch])
+
+  useEffect(() => {
+    if (plan) void queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PROFILE] })
+  }, [plan, queryClient])
 
   const testPayment = async (reset: boolean) => {
     setError(null)

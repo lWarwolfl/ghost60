@@ -13,7 +13,7 @@ async function submitRun(payload: TSubmitPayload) {
   const res = await fetch('/api/game/submit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error ?? 'submit-failed')
@@ -30,12 +30,14 @@ export function useSubmitRun() {
     mutationFn: submitRun,
     onSuccess: (data) => {
       void client.invalidateQueries({ queryKey: [QUERY_KEYS.RUNS] })
+      void client.invalidateQueries({ queryKey: [QUERY_KEYS.PROFILE] })
       const personalBest = data.progression?.isPersonalBest ?? false
       track('score_submitted', { valid: data.run.valid, personalBest })
-      if (data.run.valid && data.run.mode === 'ranked') track('ranked_run_finished', { personalBest })
+      if (data.run.valid && data.run.mode === 'ranked')
+        track('ranked_run_finished', { personalBest })
       if (personalBest) track('personal_best', {})
     },
     onSettled: () => client.invalidateQueries({ queryKey: [QUERY_KEYS.CHARGES] }),
-    retry: 0
+    retry: 0,
   })
 }

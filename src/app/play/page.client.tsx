@@ -97,18 +97,18 @@ export function PreflightClient() {
             <button
               type="button"
               onClick={() => void play('ranked')}
-              disabled={!canPlay || !hasCharge || !charges.data?.rankedAvailable}
+              disabled={!canPlay || (!hasCharge && !charges.data?.resumableModes.includes('ranked')) || !charges.data?.rankedAvailable}
               className="flex min-h-12 items-center justify-center rounded-control bg-spectral-cyan px-5 font-display text-sm font-800 tracking-[0.14em] text-ink-950 disabled:opacity-50"
             >
-              {create.isPending ? 'OPENING…' : 'START RANKED RUN'}
+              {create.isPending ? 'OPENING…' : charges.data?.resumableModes.includes('ranked') ? 'RESUME RANKED RUN' : 'START RANKED RUN'}
             </button>
             <button
               type="button"
               onClick={() => void play('practice')}
-              disabled={!canPlay || !hasCharge}
+              disabled={!canPlay || (!hasCharge && !charges.data?.resumableModes.includes('practice'))}
               className="flex min-h-12 items-center justify-center rounded-control border border-spectral-violet/50 px-5 font-display text-sm font-800 tracking-[0.14em] text-spectral-violet disabled:opacity-50"
             >
-              {create.isPending ? 'OPENING…' : 'START PRACTICE RUN'}
+              {create.isPending ? 'OPENING…' : charges.data?.resumableModes.includes('practice') ? 'RESUME PRACTICE RUN' : 'START PRACTICE RUN'}
             </button>
             {charges.data?.remaining === 0 && <Link href="/ghost-plus" className="min-h-11 text-sm text-spectral-violet underline">Get unlimited practice with Ghost+</Link>}
           </>

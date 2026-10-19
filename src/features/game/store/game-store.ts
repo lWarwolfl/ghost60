@@ -15,7 +15,12 @@ export type TPublicGame = {
 
 export type TGameSnapshot = {
   mode?: 'ranked' | 'practice' | 'challenge' | 'past_self'
-  pastSelf?: { runId: string; targetScore: number; ghost: import('@/games/core/game-module').SanitizedGhost } | null
+  playlist?: string[]
+  pastSelf?: {
+    runId: string
+    targetScore: number
+    ghost: import('@/games/core/game-module').SanitizedGhost
+  } | null
   token: string
   sessionId: string
   expiresAt: string
@@ -25,6 +30,7 @@ export type TGameSnapshot = {
     slug: string
     handle: string
     targetScore: number
+    ghost?: import('@/games/core/game-module').SanitizedGhost
   } | null
 }
 
@@ -51,15 +57,13 @@ export const useGameStore = create<TGameStore>((set) => ({
   setSnapshot: (snapshot) => {
     try {
       window.sessionStorage.setItem(KEY, JSON.stringify(snapshot))
-    } catch {
-    }
+    } catch {}
     set({ snapshot })
   },
   clear: () => {
     try {
       window.sessionStorage.removeItem(KEY)
-    } catch {
-    }
+    } catch {}
     set({ snapshot: null })
-  }
+  },
 }))

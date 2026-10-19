@@ -51,7 +51,7 @@ function shiftDay(dateStr: string, delta: number) {
 }
 
 export function streakTransition(state: TStreakState, today: string, maxGrace: number) {
-  if (state.lastCompletedDate === today) return { ...state, changed: false }
+  if (state.lastCompletedDate && state.lastCompletedDate >= today) return { ...state, changed: false }
   let current = 1
   let graceTokens = state.graceTokens
   let graceUsedTotal = state.graceUsedTotal
@@ -89,12 +89,12 @@ export type TProgressionResult = {
   streak: TStreakState | null
 }
 
-export async function applyProgression(input: TProgressionInput): Promise<TProgressionResult> {
+export async function applyProgression(input: TProgressionInput, writer: Pick<typeof db, 'select' | 'insert' | 'update'>): Promise<TProgressionResult> {
   const { userId, run, engineId, gameDate, outcome } = input
   const empty: TProgressionResult = { xpAwarded: 0, unlocked: [], isPersonalBest: false, streak: null }
   if (!run.valid) return empty
 
-  await db
+  await writer
     .insert(Achievement)
     .values(
       (ACHIEVEMENTS as Array<{ id: string; title: string; description: string }>).map((a) => ({
@@ -113,7 +113,7 @@ export async function applyProgression(input: TProgressionInput): Promise<TProgr
   let streak: TStreakState | null = null
 
   if (run.mode === 'ranked') {
-    const peers = await db
+    const peers = await writer
       .select({ validatedScore: Run.validatedScore, id: Run.id })
       .from(Run)
       .innerJoin(DailyGame, eq(Run.dailyGameId, DailyGame.id))
@@ -125,7 +125,7 @@ export async function applyProgression(input: TProgressionInput): Promise<TProgr
     }
     xpRows.push({ userId, sourceKey: `ranked:${userId}:${run.dailyGameId}`, amount: XP.RANKED_COMPLETION, reason: 'ranked_completion' })
 
-    const streakRows = await db.select().from(Streak).where(eq(Streak.userId, userId))
+    const streakRows = await writer.select().from(Streak).where(eq(Streak.userId, userId))
     const current: TStreakState = streakRows[0]
       ? {
           currentCount: streakRows[0].currentCount,
@@ -139,7 +139,7 @@ export async function applyProgression(input: TProgressionInput): Promise<TProgr
     streak = next
     if (next.changed) {
       if (streakRows[0]) {
-        await db
+        await writer
           .update(Streak)
           .set({
             currentCount: next.currentCount,
@@ -150,7 +150,7 @@ export async function applyProgression(input: TProgressionInput): Promise<TProgr
           })
           .where(eq(Streak.userId, userId))
       } else {
-        await db.insert(Streak).values({
+        await writer.insert(Streak).values({
           userId,
           currentCount: next.currentCount,
           longestCount: next.longestCount,
@@ -166,7 +166,7 @@ export async function applyProgression(input: TProgressionInput): Promise<TProgr
     if (next.currentCount >= 7) unlockIds.add('seven_signals')
     if (next.currentCount >= 30) unlockIds.add('thirty_signals')
 
-    const engines = await db
+    const engines = await writer
       .select({ gameId: DailyGame.gameId })
       .from(Run)
       .innerJoin(DailyGame, eq(Run.dailyGameId, DailyGame.id))
@@ -180,7 +180,7 @@ export async function applyProgression(input: TProgressionInput): Promise<TProgr
     unlockIds.add('echo_found')
     if (outcome === 'win' && input.attemptId) {
       const dayStart = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`)
-      const wins = await db
+      const wins = await writer
         .select({ amount: XpLedger.amount, createdAt: XpLedger.createdAt })
         .from(XpLedger)
         .where(and(eq(XpLedger.userId, userId), eq(XpLedger.reason, 'challenge_win')))
@@ -193,16 +193,16 @@ export async function applyProgression(input: TProgressionInput): Promise<TProgr
         const margin = (run.validatedScore - input.sourceScore) / input.sourceScore
         if (margin > 0 && margin < 0.01) unlockIds.add('photo_finish')
       }
-      const attempts = await db
+      const attempts = await writer
         .select({ createdAt: ChallengeAttempt.createdAt, outcome: ChallengeAttempt.outcome })
         .from(ChallengeAttempt)
         .where(eq(ChallengeAttempt.recipientUserId, userId))
       const todayWins = attempts.filter((a) => a.outcome === 'win' && a.createdAt >= dayStart).length
       if (todayWins >= 5) unlockIds.add('clean_sweep')
     }
-    const mine = await db.select({ id: Challenge.id }).from(Challenge).where(eq(Challenge.creatorUserId, userId))
+    const mine = await writer.select({ id: Challenge.id }).from(Challenge).where(eq(Challenge.creatorUserId, userId))
     if (mine.length > 0) {
-      const raced = await db
+      const raced = await writer
         .select({ challengeId: ChallengeAttempt.challengeId })
         .from(ChallengeAttempt)
         .where(
@@ -215,22 +215,14 @@ export async function applyProgression(input: TProgressionInput): Promise<TProgr
     }
   }
 
-  if (run.mode === 'past_self') {
-    const peers = await db
-      .select({ validatedScore: Run.validatedScore, mode: Run.mode })
-      .from(Run)
-      .innerJoin(DailyGame, eq(Run.dailyGameId, DailyGame.id))
-      .where(and(eq(Run.userId, userId), eq(DailyGame.gameId, engineId), eq(Run.valid, true)))
-    const others = peers.filter((r) => r.mode !== 'past_self').map((r) => r.validatedScore)
-    if (others.length > 0 && run.validatedScore > Math.max(...others)) unlockIds.add('personal_haunting')
-  }
+  if (run.mode === 'past_self' && input.sourceScore !== undefined && run.validatedScore > input.sourceScore) unlockIds.add('personal_haunting')
 
   if (xpRows.length > 0) {
-    const granted = await db.insert(XpLedger).values(xpRows).onConflictDoNothing({ target: XpLedger.sourceKey }).returning()
+    const granted = await writer.insert(XpLedger).values(xpRows).onConflictDoNothing({ target: XpLedger.sourceKey }).returning()
     empty.xpAwarded = granted.reduce((s, r) => s + r.amount, 0)
   }
   if (unlockIds.size > 0) {
-    const fresh = await db
+    const fresh = await writer
       .insert(UserAchievement)
       .values([...unlockIds].map((achievementId) => ({ userId, achievementId, context: {} })))
       .onConflictDoNothing()

@@ -6,6 +6,8 @@ import type { TPublicGame } from '@/features/game/store/game-store'
 import type { GameInputEvent } from '@/games/core/game-module'
 import { shiftEngine, type TShiftConfig } from '@/games/shift/engine'
 import { arrowFor, currentShiftCard, shiftRuleFor } from '@/games/shift/table'
+import { gameplayLoop, committedGhost } from '@/lib/game/gameplay-motion'
+import { drawSkinAvatar } from '@/lib/game/skin-renderer'
 import { audio } from '@/lib/game/audio'
 
 type TChoice = Extract<GameInputEvent, { type: 'choice' }>
@@ -21,7 +23,14 @@ export function ShiftRunner({
 }) {
   const timeRef = useRef<HTMLSpanElement>(null)
   const statusRef = useRef<HTMLSpanElement>(null)
-  const verdictRef = useRef<{ ok: boolean; at: number } | null>(null)
+  const avatarRef = useRef<HTMLCanvasElement>(null)
+  const cardRef = useRef<HTMLParagraphElement>(null)
+  const ruleRef = useRef<HTMLDivElement>(null)
+  const feedbackRef = useRef<HTMLSpanElement>(null)
+  const departureRef = useRef<HTMLSpanElement>(null)
+  const rivalRef = useRef<HTMLSpanElement>(null)
+  const previousRuleRef = useRef<string | null>(null)
+  const verdictRef = useRef<{ ok: boolean; at: number; side: 0 | 1; arrow: 0 | 1 } | null>(null)
   const [score, setScore] = useState(0)
   const [answered, setAnswered] = useState(0)
   const config = useMemo(() => shiftEngine.validateConfig(game.config) as TShiftConfig, [game.config])
@@ -41,9 +50,43 @@ export function ShiftRunner({
   })()
 
   useEffect(() => {
-    let raf = 0
     const loop = () => {
       const elapsed = session.getElapsed()
+      const avatar = avatarRef.current?.getContext('2d')
+      if (avatar) {
+        avatar.clearRect(0, 0, 32, 32)
+        drawSkinAvatar(avatar, { skin: session.skin, x: 16, y: 16, size: 25, elapsedMs: elapsed, reduced: session.reduced })
+      }
+      const card = current === -1 ? null : cards[current]
+      const presented = card !== null && elapsed >= card.presentedMs
+      if (cardRef.current) {
+        if (presented && cardRef.current.style.visibility === 'hidden') cardRef.current.animate(session.reduced ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'scale(0.98)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 80 })
+        cardRef.current.style.visibility = presented ? 'visible' : 'hidden'
+      }
+      const rule = current === -1 ? null : shiftRuleFor(current)
+      if (presented && rule !== previousRuleRef.current) {
+        if (previousRuleRef.current !== null) {
+          audio.rule()
+          ruleRef.current?.animate(session.reduced ? [{ opacity: 0.7 }, { opacity: 1 }] : [{ opacity: 0.7, transform: 'translateX(-2px)' }, { opacity: 1, transform: 'translateX(0)' }], { duration: session.reduced ? 120 : 140 })
+        }
+        previousRuleRef.current = rule
+      }
+      const seen = committedGhost(session.ghost?.timeline ?? [], session.eventsRef.current.map(e => e.t), elapsed)
+      if (rivalRef.current) rivalRef.current.textContent = seen.length ? `GHOST ${seen.length}/${cards.length}` : ''
+      const verdict = verdictRef.current
+      if (departureRef.current && verdict) {
+        const age = elapsed - verdict.at
+        departureRef.current.textContent = age >= 0 && age < 100 ? (verdict.arrow === 0 ? '←' : '→') : ''
+        departureRef.current.style.opacity = session.reduced ? '1' : String(Math.max(0, 1 - age / 100))
+        departureRef.current.style.transform = session.reduced ? 'none' : `translateX(${(verdict.side === 0 ? -1 : 1) * Math.min(1, age / 100) * 18}px)`
+      }
+      if (feedbackRef.current) {
+        const age = verdict ? elapsed - verdict.at : -1
+        feedbackRef.current.textContent = verdict && age >= 0 && age < 140 ? `${verdict.side === 0 ? '←' : '→'} ${verdict.ok ? 'HIT' : 'MISS ×'}` : ''
+        feedbackRef.current.style.color = verdict?.ok ? '#c7ff5e' : '#ff668f'
+        feedbackRef.current.style.opacity = session.reduced ? '1' : String(Math.max(0, 1 - age / 140))
+        feedbackRef.current.style.transform = session.reduced || !verdict ? 'none' : `translateX(${(verdict.side === 0 ? -1 : 1) * Math.min(1, age / 100) * 18}px)`
+      }
       if (timeRef.current) {
         const left = Math.max(0, durationMs - elapsed)
         timeRef.current.textContent = `${(left / 1000).toFixed(1)}s`
@@ -59,30 +102,31 @@ export function ShiftRunner({
           else statusRef.current.textContent = `CARD ${current + 1}/${cards.length} · LATE`
         }
       }
-      raf = requestAnimationFrame(loop)
+      return elapsed < durationMs
     }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
+    return gameplayLoop(loop)
   }, [cards, current, durationMs, session])
 
   const choose = (side: 0 | 1) => {
     if (session.phase !== 'running') return
-    if (current === -1) return
+    const index = session.eventsRef.current.length
+    const active = cards[index]
+    if (!active || session.getElapsed() < active.presentedMs) return
     audio.unlock()
     if (session.logEvent({ type: 'choice', value: side }) < 0) return
     const res = shiftEngine.scoreRun({ seed: game.seed, config, events: session.eventsRef.current, visibilityInterruptions: 0 })
     setScore(res.score)
-    const card = cards[current]
+    const card = active
     const taps = session.eventsRef.current.filter((e) => e.type === 'choice') as TChoice[]
     const last = taps[taps.length - 1]
     const ok =
       last.t >= card.presentedMs &&
       last.t <= card.presentedMs + card.windowMs &&
       last.value === card.correct
-    verdictRef.current = { ok, at: session.getElapsed() }
+    verdictRef.current = { ok, at: last.t, side, arrow: arrowFor(active.correct, index) }
     if (ok) audio.correct()
     else audio.miss()
-    setAnswered((n) => n + 1)
+    setAnswered(taps.length)
   }
 
   useEffect(() => {
@@ -104,7 +148,8 @@ export function ShiftRunner({
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex items-center justify-between px-1 py-2 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-2 text-sm">
+        <canvas ref={avatarRef} width={32} height={32} className="size-8 shrink-0" aria-hidden="true" />
         <span ref={timeRef} className="tnum text-ghost-muted">
           {(durationMs / 1000).toFixed(1)}s
         </span>
@@ -121,6 +166,7 @@ export function ShiftRunner({
       </div>
 
       <div
+        ref={ruleRef}
         aria-live="polite"
         className={`rounded-card border px-4 py-3 text-center font-display text-xs font-800 tracking-[0.18em] ${
           rule === 'reversed'
@@ -128,21 +174,25 @@ export function ShiftRunner({
             : 'border-white/10 bg-surface-800 text-ghost-muted'
         }`}
       >
-        {rule === 'reversed' ? 'REVERSED — TAP THE OPPOSITE SIDE' : 'RULE — TAP THE ARROW SIDE'}
+        {rule === 'reversed' ? '⇄ REVERSED — TAP THE OPPOSITE SIDE' : '⇉ RULE — TAP THE ARROW SIDE'}
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 py-4" aria-hidden={current === -1}>
+      <div className="relative flex flex-1 flex-col items-center justify-center gap-2 py-4" aria-hidden={current === -1}>
         {current === -1 ? (
           <p className="text-sm text-ghost-muted">All cards answered.</p>
         ) : (
-          <p className="font-display text-8xl font-800 text-ghost-text" aria-label={arrow === 0 ? 'Arrow points left' : 'Arrow points right'}>
+          <p ref={cardRef} key={current} style={{ visibility: 'hidden', opacity: session.phase === 'finishing' ? 0.6 : 1 }} className="font-display text-8xl font-800 text-ghost-text" aria-label={arrow === 0 ? 'Arrow points left' : 'Arrow points right'}>
             {arrow === 0 ? '←' : '→'}
           </p>
         )}
-        <div className="flex gap-1.5" aria-label="Card progress">
+        <span ref={departureRef} className="pointer-events-none absolute top-1/3 font-display text-8xl font-800 text-ghost-text" aria-hidden="true" />
+        <span ref={rivalRef} className="min-h-4 text-xs text-spectral-violet" />
+        <span ref={feedbackRef} className="min-h-6 font-display text-sm font-800" aria-live="polite" />
+        <div className="flex flex-wrap justify-center gap-1.5" aria-label="Card progress">
           {dots.map((d, i) => (
             <span
               key={i}
+              aria-label={`Card ${i + 1}: ${d}`}
               className={`size-2 rounded-full ${d === 'hit' ? 'bg-signal-lime' : d === 'miss' ? 'bg-rival-coral' : 'bg-white/15'}`}
             />
           ))}

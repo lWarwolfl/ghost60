@@ -15,8 +15,9 @@ import {
   visibleRivalNotches,
   type TRivalNotch
 } from '@/games/orbit/table'
+import { drawSkinAvatar } from '@/lib/game/skin-renderer'
 import { audio } from '@/lib/game/audio'
-import { gameplayLoop, drawFeedback } from '@/lib/game/gameplay-motion'
+import { gameplayLoop, drawFeedback, committedGhost } from '@/lib/game/gameplay-motion'
 
 function fitCanvas(canvas: HTMLCanvasElement) {
   const dpr = Math.min(2, window.devicePixelRatio || 1)
@@ -43,6 +44,7 @@ export function OrbitRunner({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
+  const avatarRef = useRef<HTMLCanvasElement>(null)
   const verdictCache = useRef<{ count: number; verdicts: TVerdict[] }>({ count: -1, verdicts: [] })
   const [score, setScore] = useState(0)
   const [done, setDone] = useState(0)
@@ -62,6 +64,11 @@ export function OrbitRunner({
     ro.observe(canvas)
     const draw = () => {
       const elapsed = session.getElapsed()
+      const avatar = avatarRef.current?.getContext('2d')
+      if (avatar) {
+        avatar.clearRect(0, 0, 32, 32)
+        drawSkinAvatar(avatar, { skin: session.skin, x: 16, y: 16, size: 25, elapsedMs: elapsed, reduced: session.reduced })
+      }
       const taps = session.eventsRef.current
       const { w, h } = dims
       ctx2d.clearRect(0, 0, w, h)
@@ -116,6 +123,13 @@ export function OrbitRunner({
         ctx2d.stroke()
       }
 
+      const assigned = assignTaps(targets, taps)
+      const history = committedGhost(session.ghost?.timeline ?? [], assigned.map(i => i < 0 ? null : taps[i].t), elapsed)
+      ctx2d.save()
+      ctx2d.globalAlpha = 0.45
+      ctx2d.fillStyle = '#a98bff'
+      history.forEach((_, i) => ctx2d.fillRect(12 + i * 8, h - 12, 4, 4))
+      ctx2d.restore()
       const seen = visibleRivalNotches(targets, taps, rivalNotches)
       ctx2d.fillStyle = 'rgba(169,139,255,0.45)'
       for (const n of seen) {
@@ -222,6 +236,7 @@ export function OrbitRunner({
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-2 text-sm">
+        <canvas ref={avatarRef} width={32} height={32} className="size-8 shrink-0" aria-hidden="true" />
         <span ref={timeRef} className="tnum text-ghost-muted">
           {(durationMs / 1000).toFixed(1)}s
         </span>

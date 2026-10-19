@@ -4,13 +4,17 @@ let ctx: AudioContext | null = null
 
 function ensureCtx() {
   if (typeof window === 'undefined') return null
-  if (!ctx) {
-    const AC = window.AudioContext
-    if (!AC) return null
-    ctx = new AC()
+  try {
+    if (!ctx) {
+      const AC = window.AudioContext
+      if (!AC) return null
+      ctx = new AC()
+    }
+    if (ctx.state === 'suspended') void ctx.resume().catch(() => undefined)
+    return ctx
+  } catch {
+    return null
   }
-  if (ctx.state === 'suspended') void ctx.resume()
-  return ctx
 }
 
 function tone(freq: number, ms: number, delayMs = 0, gain = 0.12) {
@@ -32,7 +36,9 @@ function tone(freq: number, ms: number, delayMs = 0, gain = 0.12) {
 }
 
 function haptic(pattern: number | number[]) {
-  if (typeof navigator !== 'undefined' && typeof window !== 'undefined' && window.localStorage.getItem('ghost60-haptics') === 'on') navigator.vibrate?.(pattern)
+  try {
+    if (typeof navigator !== 'undefined' && typeof window !== 'undefined' && window.localStorage.getItem('ghost60-haptics') === 'on') navigator.vibrate?.(pattern)
+  } catch {}
 }
 
 export const audio = {

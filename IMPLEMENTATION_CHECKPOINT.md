@@ -1,5 +1,22 @@
 # Ghost60 implementation checkpoint
 
+## Integrated completion — 2026-10-19
+
+All continuation agents finished. Owner baseline: aec9b22. Changes remain uncommitted; no pushes. This section supersedes historical pending items below.
+
+Completed: nine skin recipes/previews/equip and result cosmetics; all six entitled gameplay avatars; TRACE bounded delayed rival trails; vector/icon/rank motion with sixteen byte-identical source SVGs; account-scoped profile/payment freshness; result reveal; TRACE precision/gates; SHIFT direction/card/rule cues; actual-play +3s consumption/retries and safe pending resume. Countdown now uses countVisible. Challenge sessions carry existing sanitized ghosts through the same commitment/delay gates as past-self; no raw events or invented directions/angles. Archive supports loaded filtered practice playlists, server-authorizing each next game and remounting runs per token. Entitlement failures retain the queue.
+
+Product fixes: eligible free challenge+ranked dual satisfaction; zero-charge reservation resume; exhausted technical retry protection; atomic progression/submission; non-regressing streaks; selected past-self comparison; premium archive challenge creation; archive filters and history timestamp/UUID pagination. Safe SW caching, no-store headers, fail-closed Android association and nonwriting asset preflight are implemented. ERROR_TELEMETRY_ENABLED is documented in .env.example.
+
+Parent integrated verification: 36 test files / 257 tests passed; full lint, route generation, standalone typecheck, production webpack build (38/38), diff check and Drizzle migration check passed. All 30 content simulations valid, none impossible; four TRACE compression warnings remain without modifying published configs. All five campaign PNGs passed upload preflight, no upload performed. Read-only Neon launch status passed: SNAP today, complete persisted coverage 2026-10-19–2026-11-17, no missing dates; zero traffic/null ratios, telemetry disabled, no designated launch league. Existing Vite future-loader and outer lockfile warnings remain nonblocking.
+
+Owner/external gates remain: visual/device/performance/audio/haptic review; production HTTPS deployment and real UTC rollover/concurrency acceptance; actual Stripe payment/webhook/portal verification; designated launch league; Android package/signing/Play release; campaign upload. No browser QA was performed. Rank designs remain explicitly unearned because no season award thresholds exist. Engine modifiers absent from shipped schemas and deferred email flows were not invented or added.
+
+Detailed handoffs: companion CHECKPOINT-GAMES.md, CHECKPOINT-VECTORS.md and agent-pack/CHECKPOINT-PRODUCT.md. Their parent countdown/challenge transport/playlist gaps are resolved by this integration.
+
+## Historical recovery notes
+
+
 Latest owner request: implement all remaining code completely; owner handles visual checks. Owner additionally asks durable progress tracking because usage budget is low.
 
 ## Verified baseline
@@ -20,7 +37,17 @@ Latest owner request: implement all remaining code completely; owner handles vis
 - Focused service-worker/android/media tests: 9 passed (service worker regression first failed then passed).
 - Last scoped lint found prefer-const on timeout variable; fixed afterward, rerun pending.
 
-## Parallel implementation — still running at checkpoint
+## Resume after owner commit aec9b22
+
+- Previous four agents stopped at provider usage limits; their partial edits were committed by the owner. Those agents are NOT running.
+- Working tree was clean on resumption. Actual baseline rerun: 217 tests passed, typecheck passed; lint had one unused drawFeedback warning in trace runner.
+- New batch deleg_722dfb91 is finishing bounded remaining work: sa-0-454a6c88 gameplay runners/consume/sound; sa-1-af4b2645 challenge+ranked/archive/resume; sa-2-fa0dd046 brand vectors/CSS.
+- Parent verified committed skin resolver, nine recipes/previews/cosmetics API and added account-scoped profile freshness, post-submit/payment profile invalidation, result avatar outcome states, in-app reduced result motion and DOM-only score reveal (no per-frame React state).
+- Parent wired supplied rank designs as explicitly unearned profile gallery; no season thresholds were specified, so no earned rank is fabricated.
+- Focused profile/cosmetics/preview/renderer regression checks: 13 passed. Scoped parent lint passed. Content simulations: all 30 valid, four TRACE compression warnings remain; Drizzle migration check passed.
+- Full final integration/build/launch-status check remains pending after all writers finish. No commits or pushes by assistant.
+
+## Parallel implementation — historical failed batch
 
 Batch deleg_d8c83762. Do not overwrite files owned below while agents run. No browser checks, dependencies, commits, pushes or unapproved live database writes.
 

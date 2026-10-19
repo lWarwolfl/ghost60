@@ -1,5 +1,6 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { QUERY_KEYS } from '@/features/game/queries/keys'
+import { authClient } from '@/lib/auth/client'
 import type { TSkin, TSkinEntitlement } from '@/lib/game/skins'
 
 export type TProfile = {
@@ -13,7 +14,10 @@ export type TProfile = {
     equipped: { ghost: string | null; card: string | null }
     catalog: Array<TSkin & { unlocked: boolean; gradient: [string, string] }>
   }
-  achievements: Array<{ achievementId: string; detail: { title: string; description: string } | null }>
+  achievements: Array<{
+    achievementId: string
+    detail: { title: string; description: string } | null
+  }>
   recentRuns: Array<{
     id: string
     mode: string
@@ -31,10 +35,23 @@ async function fetchProfile(): Promise<TProfile> {
   return res.json()
 }
 
+const profileOptions = (userId?: string) => ({
+  queryKey: [QUERY_KEYS.PROFILE, userId],
+  queryFn: fetchProfile,
+  retry: 1,
+  staleTime: 0,
+  refetchOnMount: 'always' as const,
+  refetchOnWindowFocus: 'always' as const,
+  refetchOnReconnect: 'always' as const,
+  refetchInterval: 60000,
+})
+
 export function useProfile() {
-  return useQuery({ queryKey: [QUERY_KEYS.PROFILE], queryFn: fetchProfile, retry: 1 })
+  const { data: session } = authClient.useSession()
+  return useQuery({ ...profileOptions(session?.user.id), enabled: Boolean(session?.user) })
 }
 
 export function useProfileSuspense() {
-  return useSuspenseQuery({ queryKey: [QUERY_KEYS.PROFILE], queryFn: fetchProfile, retry: 1 })
+  const { data: session } = authClient.useSession()
+  return useSuspenseQuery(profileOptions(session?.user.id))
 }

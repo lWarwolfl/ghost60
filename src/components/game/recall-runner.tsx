@@ -13,8 +13,9 @@ import {
   showSchedule,
   type TSeqResolution
 } from '@/games/recall/table'
+import { drawSkinAvatar } from '@/lib/game/skin-renderer'
 import { audio } from '@/lib/game/audio'
-import { gameplayLoop, drawFeedback, recallFeedback } from '@/lib/game/gameplay-motion'
+import { gameplayLoop, drawFeedback, recallFeedback, committedGhost } from '@/lib/game/gameplay-motion'
 
 function fitCanvas(canvas: HTMLCanvasElement) {
   const dpr = Math.min(2, window.devicePixelRatio || 1)
@@ -45,6 +46,7 @@ export function RecallRunner({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
+  const avatarRef = useRef<HTMLCanvasElement>(null)
   const statusRef = useRef<HTMLSpanElement>(null)
   const verdictRef = useRef<ReturnType<typeof recallFeedback>>(null)
   const resolutionRef = useRef({ count: -1, resolved: [] as TSeqResolution[] })
@@ -69,6 +71,11 @@ export function RecallRunner({
     ro.observe(canvas)
     const draw = () => {
       const elapsed = session.getElapsed()
+      const avatar = avatarRef.current?.getContext('2d')
+      if (avatar) {
+        avatar.clearRect(0, 0, 32, 32)
+        drawSkinAvatar(avatar, { skin: session.skin, x: 16, y: 16, size: 25, elapsedMs: elapsed, reduced: session.reduced })
+      }
       const taps = session.eventsRef.current as TChoice[]
       if (resolutionRef.current.count !== taps.length) resolutionRef.current = { count: taps.length, resolved: resolveSequences(config, taps) }
       const resolved = resolutionRef.current.resolved
@@ -126,6 +133,14 @@ export function RecallRunner({
         }
       }
 
+      let cursor = 0
+      const commitments = resolved.map(round => { cursor += round.used; return round.status === 'open' ? null : (taps[cursor - 1]?.t ?? null) })
+      const seen = committedGhost(session.ghost?.timeline ?? [], commitments, elapsed)
+      ctx2d.save()
+      ctx2d.fillStyle = '#a98bff'
+      ctx2d.globalAlpha = 0.45
+      seen.forEach((_, i) => ctx2d.fillRect(12 + i * 10, h - 12, 5, 5))
+      ctx2d.restore()
       if (statusRef.current) {
         statusRef.current.textContent =
           current === -1
@@ -205,6 +220,7 @@ export function RecallRunner({
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-2 text-sm">
+        <canvas ref={avatarRef} width={32} height={32} className="size-8 shrink-0" aria-hidden="true" />
         <span ref={timeRef} className="tnum text-ghost-muted">
           {(durationMs / 1000).toFixed(1)}s
         </span>

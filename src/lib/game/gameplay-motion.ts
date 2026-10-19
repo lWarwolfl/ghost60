@@ -3,6 +3,28 @@ import type { TRecallConfig } from '@/games/recall/engine'
 import { resolveSequences } from '@/games/recall/table'
 import type { TTraceConfig } from '@/games/trace/engine'
 
+export function runClock(now: number, start: number, duration: number) {
+  const elapsed = now - start
+  return { elapsed: Math.min(duration, Math.max(0, elapsed)), running: elapsed >= 0 && elapsed < duration, consume: elapsed >= 3000, finished: elapsed >= duration }
+}
+
+export function consumptionRequest(token: string, request: typeof fetch = fetch) {
+  let consumed = false
+  let pending: Promise<boolean> | null = null
+  return () => {
+    if (consumed) return Promise.resolve(true)
+    if (pending) return pending
+    pending = request('/api/game/consume', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }), keepalive: true
+    }).then(async response => {
+      consumed = response.ok && (await response.json()).consumed === true
+      return consumed
+    }).catch(() => false).finally(() => { pending = null })
+    return pending
+  }
+}
+
 export function inputTime(now: number, start: number, duration: number, running: boolean) {
   const elapsed = now - start
   return running && elapsed >= 0 && elapsed < duration ? Math.round(elapsed) : -1

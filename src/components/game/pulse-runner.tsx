@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { TRunSession } from '@/features/game/hooks/useRunSession.hook'
 import type { TPublicGame } from '@/features/game/store/game-store'
+import { drawSkinAvatar } from '@/lib/game/skin-renderer'
 import { audio } from '@/lib/game/audio'
-import { gameplayLoop, drawFeedback, pulseAssignments } from '@/lib/game/gameplay-motion'
+import { gameplayLoop, drawFeedback, pulseAssignments, committedGhost } from '@/lib/game/gameplay-motion'
 import { pulseEngine, type TPulseConfig } from '@/games/pulse/engine'
 
 const APPROACH_MS = 1200
@@ -28,6 +29,7 @@ function radiusAt(tapT: number, targetMs: number, r: number) {
 export function PulseRunner({ game, session }: { game: TPublicGame; session: TRunSession }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
+  const avatarRef = useRef<HTMLCanvasElement>(null)
   const [score, setScore] = useState(0)
   const impactRef = useRef<{ at: number; targetMs: number; accuracy: number; delta: number } | null>(null)
   const scoreRef = useRef(0)
@@ -53,6 +55,11 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
     ro.observe(canvas)
     const draw = () => {
       const elapsed = session.getElapsed()
+      const avatar = avatarRef.current?.getContext('2d')
+      if (avatar) {
+        avatar.clearRect(0, 0, 32, 32)
+        drawSkinAvatar(avatar, { skin: session.skin, x: 16, y: 16, size: 25, elapsedMs: elapsed, reduced: session.reduced })
+      }
       const { w, h } = dims
       ctx2d.clearRect(0, 0, w, h)
       const cx = w / 2
@@ -86,6 +93,19 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
         ctx2d.arc(cx, cy, rr, 0, Math.PI * 2)
         ctx2d.stroke()
         ctx2d.globalAlpha = 1
+      }
+      const assignments = pulseAssignments(pulses, session.eventsRef.current)
+      const seen = committedGhost(session.ghost?.timeline ?? [], assignments.map(i => i < 0 ? null : session.eventsRef.current[i].t), elapsed)
+      const progress = seen.at(-1)?.progress
+      if (progress !== undefined) {
+        ctx2d.save()
+        ctx2d.strokeStyle = '#a98bff'
+        ctx2d.globalAlpha = 0.45
+        ctx2d.lineWidth = lw
+        ctx2d.beginPath()
+        ctx2d.arc(cx, cy, r * 1.5, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2)
+        ctx2d.stroke()
+        ctx2d.restore()
       }
       const impact = impactRef.current
       if (impact) {
@@ -163,6 +183,7 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-2 text-sm">
+        <canvas ref={avatarRef} width={32} height={32} className="size-8 shrink-0" aria-hidden="true" />
         <span ref={timeRef} className="tnum text-ghost-muted">
           {(game.durationMs / 1000).toFixed(1)}s
         </span>

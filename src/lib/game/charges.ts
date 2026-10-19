@@ -14,7 +14,9 @@ export function chargeSnapshot(sessions: TRunSession[], plan: TPlan, now = new D
   return {
     limit, remaining: limit === null ? null : Math.max(0, limit - used), used,
     resetAt: end.toISOString(),
-    rankedAvailable: !today.some((s) => s.mode === 'ranked' && (s.consumedAt !== null || s.state === 'submitted')), plan
+    rankedAvailable: !today.some((s) => s.mode === 'ranked' && (s.consumedAt !== null || s.state === 'submitted' || (s.technicalRetryOf && (s.state === 'expired' || s.expiresAt <= now)))),
+    resumableModes: [...new Set(today.filter((s) => !s.consumedAt && !['cancelled', 'expired', 'submitted'].includes(s.state) && s.expiresAt > now).map((s) => s.mode))],
+    plan
   }
 }
 

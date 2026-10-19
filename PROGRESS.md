@@ -2,6 +2,20 @@
 
 Source of truth for product behavior stays in the docs folder (`ai-generated-junk/ghost60/agent-pack/`). This file tracks what is DONE in code.
 
+## Integrated completion — 2026-10-19
+
+- [x] Nine entitled skins, synchronized previews, profile equip, six gameplay avatars, TRACE trail and result card integration; cosmetic changes preserve target contrast, timing and authoritative scores.
+- [x] Six icon/vector motion states, unique SVG IDs, reduced/hidden motion handling; all sixteen source vectors byte-identical. Season-rank designs remain explicitly unearned pending an award policy.
+- [x] Countdown interstitial/GO wiring, actual-play consumption/retry/resume, TRACE precision/gates, SHIFT card/direction/rule feedback and privacy-gated challenge/past-self sanitized ghosts.
+- [x] Eligible challenge+ranked dual satisfaction, zero-charge reservation resume, exhausted retry protection, atomic progression/submission and non-regressing streaks.
+- [x] Archive filters/pagination, owned past-self targets, premium archive challenge creation, history keyset pagination/charts and sequential practice playlist for loaded filtered archive games. Every next game is authorized server-side; entitlement failure retains the queue.
+- [x] Account-scoped profile refresh after runs/payments, safe static-only SW/offline shell, no-store headers, Android association validation, asset preflight and opt-in server error telemetry.
+- [x] Parent final verification: 257 tests across 36 files; lint, route generation, typecheck, webpack production build, diff check and Drizzle check passed. All 30 content simulations valid; four TRACE compression warnings remain. Five campaign asset inputs ready, not uploaded.
+- [x] Read-only Neon status: current SNAP valid, no missing dates from 2026-10-19 through 2026-11-17. This is schedule/config readiness only; no traffic samples, telemetry disabled and no designated launch league.
+- [ ] Owner visual/device/performance/audio review, production deployment/live rollover/concurrency, real Stripe acceptance, launch league, campaign upload and Android signing/Play release remain unverified. No browser checks performed in this pass. Changes are uncommitted.
+
+Historical milestones below retain their original test counts and past E2E reports; they are not fresh browser verification. Current code status above supersedes old deferred/Stripe-paused descriptions.
+
 ## Milestones
 
 - [x] Phase 0 — Scaffold (Next 16.4.0, React 19.3.0, TS 5, Tailwind v4, baseline deps, folders, `npm run build` + eslint + `drizzle-kit check` green)

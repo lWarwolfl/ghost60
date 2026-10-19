@@ -24,6 +24,9 @@ describe('streakTransition', () => {
     const reset = streakTransition(base, '2026-10-09', 1)
     expect(reset).toMatchObject({ currentCount: 1, longestCount: 5, changed: true })
   })
+  it('never regresses the streak when a previous-day pending run arrives late', () => {
+    expect(streakTransition(base, '2026-10-05', 1)).toMatchObject({ ...base, changed: false })
+  })
   it('earns grace on 7-day multiples within cap', () => {
     const seventh = streakTransition({ ...base, currentCount: 6, lastCompletedDate: '2026-10-06' }, '2026-10-07', 1)
     expect(seventh).toMatchObject({ currentCount: 7, graceTokens: 1 })

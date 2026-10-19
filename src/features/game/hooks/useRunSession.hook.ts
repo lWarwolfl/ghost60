@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSubmitRun } from '@/features/game/mutations/useSubmitRun.mutation'
-import type { TPublicGame } from '@/features/game/store/game-store'
+import { useGameStore, type TPublicGame } from '@/features/game/store/game-store'
 import { audio } from '@/lib/game/audio'
-import { countdownState, inputTime } from '@/lib/game/gameplay-motion'
+import { countdownState, inputTime, runClock, consumptionRequest } from '@/lib/game/gameplay-motion'
 import { clearPending, loadPending, savePending } from '@/lib/game/pending-store'
+import { useEquippedSkin } from '@/lib/hooks/useEquippedSkin.hook'
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion.hook'
 import type { GameInputEvent } from '@/games/core/game-module'
 
@@ -22,20 +23,6 @@ export type TRunResult = {
 
 type TLogInput = Omit<Extract<GameInputEvent, { type: 'tap' }>, 't'> | Omit<Extract<GameInputEvent, { type: 'choice' }>, 't'> | Omit<Extract<GameInputEvent, { type: 'pointer_down' | 'pointer_move' | 'pointer_up' }>, 't'>
 
-const COUNT_MS = 1000
-const GO_MS = 250
-
-async function consume(token: string) {
-  try {
-    await fetch('/api/game/consume', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token })
-    })
-  } catch {
-    return
-  }
-}
 
 export function useRunSession(game: TPublicGame, token: string) {
   const [phase, setPhase] = useState<TRunPhase>('countdown')
@@ -47,13 +34,16 @@ export function useRunSession(game: TPublicGame, token: string) {
   const eventsRef = useRef<GameInputEvent[]>([])
   const visRef = useRef(0)
   const runStartRef = useRef(0)
-  const consumedRef = useRef(false)
+  const consumeRef = useRef<(() => Promise<boolean>) | null>(null)
+  const submittingRef = useRef(false)
   const submit = useSubmitRun()
   const submitRef = useRef(submit.mutateAsync)
   useEffect(() => {
     submitRef.current = submit.mutateAsync
   })
   const reduced = useReducedMotion()
+  const skin = useEquippedSkin()
+  const ghost = useGameStore(state => state.snapshot?.token === token ? state.snapshot.pastSelf?.ghost ?? state.snapshot.challenge?.ghost : undefined)
 
   const getElapsed = useCallback(() => {
     if (!runStartRef.current) return 0
@@ -62,7 +52,11 @@ export function useRunSession(game: TPublicGame, token: string) {
 
   const doSubmit = useCallback(
     async (events: GameInputEvent[], visibilityInterruptions: number) => {
+      if (submittingRef.current) return
+      submittingRef.current = true
+      acceptingRef.current = false
       setPhase('submitting')
+      await savePending({ token, gameId: game.gameId, events, visibilityInterruptions, savedAt: Date.now() }).catch(() => undefined)
       try {
         const data = await submitRef.current({ token, events, visibilityInterruptions })
         await clearPending(token).catch(() => undefined)
@@ -78,58 +72,94 @@ export function useRunSession(game: TPublicGame, token: string) {
         if (data.run.valid && (data.outcome === 'win' || data.progression?.isPersonalBest)) audio.win()
       } catch (e) {
         if (e instanceof TypeError) {
-          await savePending({ token, gameId: game.gameId, events, visibilityInterruptions, savedAt: Date.now() }).catch(() => undefined)
           setPhase('pending')
         } else {
           setError(e instanceof Error ? e.message : 'submit-failed')
           setPhase('error')
         }
+      } finally {
+        submittingRef.current = false
       }
     },
     [game.gameId, token]
   )
 
   useEffect(() => {
-    const timers: ReturnType<typeof setTimeout>[] = []
-    const countdownStart = performance.now()
-    runStartRef.current = countdownStart + COUNT_MS * 3
-    const updateCount = () => {
-      const state = countdownState(performance.now() - countdownStart)
-      setCount(state.count)
-      setCountVisible(state.visible)
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout>
+    let finished = false
+    let lastCount = 3
+    const key = `ghost60:consumed:${token}`
+    const request = consumptionRequest(token)
+    let lastRequest = -Infinity
+    consumeRef.current = () => {
+      if (performance.now() - lastRequest < 1000) return Promise.resolve(false)
+      lastRequest = performance.now()
+      try { window.sessionStorage.setItem(key, '1') } catch {}
+      return request()
     }
-    for (const at of [700, 1000, 1700, 2000, 2700, 3000, 3000 + GO_MS]) {
-      timers.push(setTimeout(() => {
-        updateCount()
-        if (at === 1000 || at === 2000) audio.tick()
-        if (at === 3000) {
-          acceptingRef.current = true
-          setPhase('running')
-          audio.go()
-        }
-      }, at))
-    }
-    timers.push(setTimeout(() => {
-      if (!consumedRef.current) {
-        consumedRef.current = true
-        void consume(token)
+    const begin = async () => {
+      const pending = await loadPending(token).catch(() => undefined)
+      if (cancelled) return
+      if (pending) {
+        eventsRef.current = pending.events
+        void doSubmit(pending.events, pending.visibilityInterruptions)
+        return
       }
-    }, COUNT_MS * 3 + 3000))
-    audio.tick()
-    timers.push(setTimeout(() => {
-      acceptingRef.current = false
-      setPhase('finishing')
-      audio.finish()
-      timers.push(setTimeout(() => void doSubmit([...eventsRef.current], visRef.current), 120))
-    }, COUNT_MS * 3 + game.durationMs))
+      let spent = false
+      try { spent = window.sessionStorage.getItem(key) === '1' } catch {}
+      if (spent) {
+        setError('attempt-already-started')
+        setPhase('error')
+        void request()
+        return
+      }
+      const countdownStart = performance.now()
+      runStartRef.current = countdownStart + 3000
+      eventsRef.current = []
+      visRef.current = 0
+      setPhase('countdown')
+      audio.tick()
+      const update = () => {
+        if (cancelled || finished) return
+        const now = performance.now()
+        const countdown = countdownState(now - countdownStart)
+        setCount(countdown.count)
+        setCountVisible(countdown.visible)
+        const clock = runClock(now, runStartRef.current, game.durationMs)
+        if (countdown.count !== lastCount) {
+          lastCount = countdown.count
+          if (clock.running) audio.go()
+          else if (countdown.count > 0) audio.tick()
+        }
+        acceptingRef.current = clock.running
+        if (clock.consume) void consumeRef.current?.()
+        if (clock.finished) {
+          finished = true
+          setPhase('finishing')
+          audio.finish()
+          timer = setTimeout(() => void doSubmit([...eventsRef.current], visRef.current), 120)
+          return
+        }
+        if (clock.running) setPhase('running')
+        timer = setTimeout(update, 50)
+      }
+      update()
+    }
+    void begin()
     const onVis = () => {
       if (document.visibilityState === 'hidden' && acceptingRef.current) visRef.current += 1
+      if (runStartRef.current && (eventsRef.current.length || performance.now() - runStartRef.current >= 3000)) void consumeRef.current?.()
     }
     document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('pagehide', onVis)
     return () => {
+      if (runStartRef.current && (eventsRef.current.length || performance.now() - runStartRef.current >= 3000)) void consumeRef.current?.()
+      cancelled = true
       acceptingRef.current = false
-      for (const t of timers) clearTimeout(t)
+      clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('pagehide', onVis)
     }
   }, [doSubmit, game.durationMs, token])
 
@@ -149,13 +179,10 @@ export function useRunSession(game: TPublicGame, token: string) {
       const t = inputTime(performance.now(), runStartRef.current, game.durationMs, acceptingRef.current)
       if (t < 0) return -1
       eventsRef.current.push({ ...input, t } as GameInputEvent)
-      if (!consumedRef.current) {
-        consumedRef.current = true
-        void consume(token)
-      }
+      void consumeRef.current?.()
       return t
     },
-    [token, game.durationMs]
+    [game.durationMs]
   )
 
   const retryPending = useCallback(async () => {
@@ -169,8 +196,8 @@ export function useRunSession(game: TPublicGame, token: string) {
   }, [doSubmit, token])
 
   return useMemo(
-    () => ({ phase, count, countVisible, result, error, eventsRef, logEvent, getElapsed, retryPending, reduced }),
-    [phase, count, countVisible, result, error, logEvent, getElapsed, retryPending, reduced]
+    () => ({ phase, count, countVisible, result, error, eventsRef, logEvent, getElapsed, retryPending, reduced, skin, ghost }),
+    [phase, count, countVisible, result, error, logEvent, getElapsed, retryPending, reduced, skin, ghost]
   )
 }
 

@@ -1,5 +1,6 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { createHash } from 'node:crypto'
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -22,6 +23,12 @@ describe('vector motion', () => {
       String(file).endsWith('.svg')
     )
     expect(files).toHaveLength(16)
+    const digest = createHash('sha256')
+    for (const file of files.map(String).sort()) {
+      digest.update(file.replaceAll('\\', '/'))
+      digest.update(readFileSync(path.join('public/vectors', file)))
+    }
+    expect(digest.digest('hex')).toBe('14d6b1973cff731def38d2f45b9c0f3ee6d972d037deb779c93b97a68301a5d3')
     for (const file of files) {
       const raw = readFileSync(path.join('public/vectors', String(file)), 'utf8')
       expect(raw).toMatch(/^<svg/)
@@ -77,6 +84,30 @@ describe('vector motion', () => {
     }
   })
 
+  it('holds the actual orbit angle at completion and rejects invalid angles', () => {
+    const complete = renderToStaticMarkup(
+      createElement(GameIcon, { game: 'orbit', motion: 'complete', orbitAngle: 270 })
+    )
+    expect(complete).toContain('rotate(90deg)')
+    const invalid = renderToStaticMarkup(
+      createElement(GameIcon, { game: 'orbit', motion: 'active', orbitAngle: Number.NaN })
+    )
+    expect(invalid).not.toContain('NaN')
+  })
+
+  it('keeps promotion center brightening independent from delayed geometry', () => {
+    expect(css).not.toMatch(/\[data-motion="promote"\] \[data-part="new-badge"\] \{ animation:/)
+    expect(css).toContain('center-brighten 120ms 180ms both')
+    expect(css).toContain('draw-line 420ms 300ms both, vector-fade 420ms 300ms both')
+  })
+
+  it('moves each SNAP corner toward the center and leaves the TRACE traveler upright', () => {
+    expect(css).toMatch(/@keyframes corner-drift \{ 50% \{ transform: scale\(\.925\);/)
+    expect(css).toContain('offset-anchor: 0px 0px')
+    expect(css).toContain('offset-rotate: 0deg')
+    expect(css).toMatch(/\[data-game="recall"\] \[data-part\^="sample-"\] \{ opacity: \.15;/)
+  })
+
   it('responds to OS, app, cross-tab and visibility changes and removes subscriptions', () => {
     const media = Object.assign(new EventTarget(), { matches: false })
     const windowEvents = new EventTarget()
@@ -120,6 +151,15 @@ describe('vector motion', () => {
     windowEvents.dispatchEvent(new Event('ghost60:prefs'))
     documentEvents.dispatchEvent(new Event('visibilitychange'))
     expect(notify).not.toHaveBeenCalled()
+  })
+
+  it('falls back safely when browser storage is blocked', () => {
+    vi.stubGlobal('window', {
+      localStorage: { getItem: () => { throw new Error('blocked') } },
+      matchMedia: () => ({ matches: true }),
+    })
+    vi.stubGlobal('document', { hidden: true })
+    expect(getBrandMotionSnapshot()).toBe('true:true')
   })
 
   it('covers static motion, reduced-motion fallbacks and hidden-tab pause without animation JS', () => {

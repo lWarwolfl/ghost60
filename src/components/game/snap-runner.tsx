@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TRunSession } from '@/features/game/hooks/useRunSession.hook'
 import type { TPublicGame } from '@/features/game/store/game-store'
+import { drawSkinAvatar } from '@/lib/game/skin-renderer'
 import { audio } from '@/lib/game/audio'
-import { gameplayLoop, drawFeedback } from '@/lib/game/gameplay-motion'
+import { gameplayLoop, drawFeedback, committedGhost } from '@/lib/game/gameplay-motion'
 import { createRng, hashSeed } from '@/games/core/rng'
 import { snapEngine, type TSnapConfig } from '@/games/snap/engine'
 
@@ -88,6 +89,7 @@ function drawShape(ctx: CanvasRenderingContext2D, shape: TShape, cx: number, cy:
 export function SnapRunner({ game, session }: { game: TPublicGame; session: TRunSession }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
+  const avatarRef = useRef<HTMLCanvasElement>(null)
   const verdictRef = useRef<{ t: number; ok: boolean; index: number; round: number } | null>(null)
   const labelRef = useRef('')
   const [score, setScore] = useState(0)
@@ -134,6 +136,11 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
     ro.observe(canvas)
     const draw = () => {
       const elapsed = session.getElapsed()
+      const avatar = avatarRef.current?.getContext('2d')
+      if (avatar) {
+        avatar.clearRect(0, 0, 32, 32)
+        drawSkinAvatar(avatar, { skin: session.skin, x: 16, y: 16, size: 25, elapsedMs: elapsed, reduced: session.reduced })
+      }
       const { cssW, cssH, dpr } = view
       ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx2d.clearRect(0, 0, cssW, cssH)
@@ -162,6 +169,15 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
         setLabel('GET READY')
       } else {
         setLabel('DONE — WAITING FOR CLOCK')
+      }
+      const seen = committedGhost(session.ghost?.timeline ?? [], session.eventsRef.current.map(e => e.t), elapsed)
+      const progress = seen.at(-1)?.progress
+      if (progress !== undefined) {
+        ctx2d.save()
+        ctx2d.fillStyle = '#a98bff'
+        ctx2d.globalAlpha = 0.45
+        ctx2d.fillRect(cssW - 6, cssH * (1 - progress), 3, cssH * progress)
+        ctx2d.restore()
       }
       const verdict = verdictRef.current
       if (verdict) {
@@ -249,6 +265,7 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-2 text-sm">
+        <canvas ref={avatarRef} width={32} height={32} className="size-8 shrink-0" aria-hidden="true" />
         <span ref={timeRef} className="tnum text-ghost-muted">
           {(game.durationMs / 1000).toFixed(1)}s
         </span>

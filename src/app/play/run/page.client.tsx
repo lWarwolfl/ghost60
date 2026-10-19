@@ -3,45 +3,79 @@
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { GhostAvatar } from '@/components/brand/ghost-avatar'
+import { useReducedMotion } from '@/lib/hooks/useReducedMotion.hook'
 import { ShareButtons } from '@/components/results/share-buttons'
 import { SkinCardFrame } from '@/components/game/skin-card-frame'
 import { useProfile } from '@/features/game/queries/useProfile.query'
 import { resolveSkin } from '@/lib/game/skins'
 import { TrackView } from '@/components/analytics/track-view'
+import { useCreateSession } from '@/features/game/mutations/useCreateSession.mutation'
+import { audio } from '@/lib/game/audio'
 import { useCreateChallenge } from '@/features/game/mutations/useCreateChallenge.mutation'
 import { useRunSession, type TRunResult } from '@/features/game/hooks/useRunSession.hook'
-import { useGameStore, loadSnapshotFromStorage, type TGameSnapshot } from '@/features/game/store/game-store'
+import {
+  useGameStore,
+  loadSnapshotFromStorage,
+  type TGameSnapshot,
+} from '@/features/game/store/game-store'
 import type { GameInputEvent } from '@/games/core/game-module'
 import { getGame } from '@/games/registry'
 
-const PulseRunner = dynamic(() => import('@/components/game/pulse-runner').then((m) => m.PulseRunner), {
-  ssr: false,
-  loading: () => <p className="py-8 text-center text-sm text-ghost-muted">Warming up the field…</p>
-})
-const SnapRunner = dynamic(() => import('@/components/game/snap-runner').then((m) => m.SnapRunner), {
-  ssr: false,
-  loading: () => <p className="py-8 text-center text-sm text-ghost-muted">Shuffling shapes…</p>
-})
-const OrbitRunner = dynamic(() => import('@/components/game/orbit-runner').then((m) => m.OrbitRunner), {
-  ssr: false,
-  loading: () => <p className="py-8 text-center text-sm text-ghost-muted">Spinning up the ring…</p>
-})
-const RecallRunner = dynamic(() => import('@/components/game/recall-runner').then((m) => m.RecallRunner), {
-  ssr: false,
-  loading: () => <p className="py-8 text-center text-sm text-ghost-muted">Dealing the grid…</p>
-})
-const ShiftRunner = dynamic(() => import('@/components/game/shift-runner').then((m) => m.ShiftRunner))
-const TraceRunner = dynamic(() => import('@/components/game/trace-runner').then((m) => m.TraceRunner), {
-  ssr: false,
-  loading: () => <p className="py-8 text-center text-sm text-ghost-muted">Laying the corridor…</p>
-})
+const PulseRunner = dynamic(
+  () => import('@/components/game/pulse-runner').then((m) => m.PulseRunner),
+  {
+    ssr: false,
+    loading: () => (
+      <p className="text-ghost-muted py-8 text-center text-sm">Warming up the field…</p>
+    ),
+  }
+)
+const SnapRunner = dynamic(
+  () => import('@/components/game/snap-runner').then((m) => m.SnapRunner),
+  {
+    ssr: false,
+    loading: () => <p className="text-ghost-muted py-8 text-center text-sm">Shuffling shapes…</p>,
+  }
+)
+const OrbitRunner = dynamic(
+  () => import('@/components/game/orbit-runner').then((m) => m.OrbitRunner),
+  {
+    ssr: false,
+    loading: () => (
+      <p className="text-ghost-muted py-8 text-center text-sm">Spinning up the ring…</p>
+    ),
+  }
+)
+const RecallRunner = dynamic(
+  () => import('@/components/game/recall-runner').then((m) => m.RecallRunner),
+  {
+    ssr: false,
+    loading: () => <p className="text-ghost-muted py-8 text-center text-sm">Dealing the grid…</p>,
+  }
+)
+const ShiftRunner = dynamic(() =>
+  import('@/components/game/shift-runner').then((m) => m.ShiftRunner)
+)
+const TraceRunner = dynamic(
+  () => import('@/components/game/trace-runner').then((m) => m.TraceRunner),
+  {
+    ssr: false,
+    loading: () => (
+      <p className="text-ghost-muted py-8 text-center text-sm">Laying the corridor…</p>
+    ),
+  }
+)
 
 function CountOverlay({ count, reduced }: { count: number; reduced: boolean }) {
   return (
-    <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-live="polite">
+    <div
+      className="pointer-events-none absolute inset-0 flex items-center justify-center"
+      aria-live="polite"
+    >
       <span
-        className={`font-display text-7xl font-800 text-ghost-text ${reduced ? '' : 'animate-reveal'}`}
+        className={`font-display font-800 text-ghost-text text-7xl ${reduced ? '' : 'animate-reveal'}`}
         key={count}
       >
         {count === 0 ? 'GO' : count}
@@ -52,36 +86,65 @@ function CountOverlay({ count, reduced }: { count: number; reduced: boolean }) {
 
 function BusyOverlay({ label }: { label: string }) {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-ink-950/80" role="status">
-      <span className="size-10 animate-spin rounded-full border-2 border-white/15 border-t-spectral-cyan" />
-      <p className="text-sm text-ghost-muted">{label}</p>
+    <div
+      className="bg-ink-950/80 absolute inset-0 flex flex-col items-center justify-center gap-3"
+      role="status"
+    >
+      <span className="border-t-spectral-cyan size-10 animate-spin rounded-full border-2 border-white/15" />
+      <p className="text-ghost-muted text-sm">{label}</p>
     </div>
   )
 }
 
-function ResultPanel({ snapshot, events, result }: { snapshot: TGameSnapshot; events: GameInputEvent[]; result: TRunResult }) {
+function ResultPanel({
+  snapshot,
+  events,
+  result,
+}: {
+  snapshot: TGameSnapshot
+  events: GameInputEvent[]
+  result: TRunResult
+}) {
   const router = useRouter()
   const { clear } = useGameStore()
   const createChallenge = useCreateChallenge()
+  const createSession = useCreateSession()
+  const setSnapshot = useGameStore((state) => state.setSnapshot)
+  const nextPractice = async () => {
+    const [dailyGameId, ...playlist] = snapshot.playlist ?? []
+    if (!dailyGameId) return
+    setChallengeError(null)
+    audio.unlock()
+    try {
+      const next = await createSession.mutateAsync({ mode: 'practice', dailyGameId })
+      setSnapshot({ ...next, playlist })
+    } catch (error) {
+      setChallengeError(error instanceof Error ? error.message : 'session-failed')
+    }
+  }
   const { data: profile } = useProfile()
   const cardSkin = resolveSkin(profile?.cosmetics.equipped.card, profile?.plan)
   const [sharedUrl, setSharedUrl] = useState<string | null>(null)
   const [challengeError, setChallengeError] = useState<string | null>(null)
-  const [display, setDisplay] = useState<number | null>(null)
+  const scoreDisplay = useRef<HTMLParagraphElement>(null)
   const { game, challenge } = snapshot
   const score = result.score
   const viewProps = {
     game: game.gameId,
     outcome: result.outcome ?? 'none',
     personalBest: result.isPersonalBest,
-    challenge: Boolean(challenge)
+    challenge: Boolean(challenge),
   }
-  const reduced =
-    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const reduced = useReducedMotion()
   let metricsLine = ''
   try {
     const mod = getGame(game.gameId)
-    const local = mod.scoreRun({ seed: game.seed, config: mod.validateConfig(game.config) as never, events, visibilityInterruptions: 0 })
+    const local = mod.scoreRun({
+      seed: game.seed,
+      config: mod.validateConfig(game.config) as never,
+      events,
+      visibilityInterruptions: 0,
+    })
     metricsLine = Object.entries(local.metrics)
       .map(([k, v]) => `${k} ${v}`)
       .join(' · ')
@@ -89,13 +152,17 @@ function ResultPanel({ snapshot, events, result }: { snapshot: TGameSnapshot; ev
     metricsLine = ''
   }
   useEffect(() => {
-    if (reduced) return
+    const node = scoreDisplay.current
+    if (!node) return
+    node.textContent = String(score)
+    if (reduced || document.hidden) return
     const t0 = performance.now()
     let raf = 0
     const step = (now: number) => {
-      const p = Math.min(1, (now - t0) / 420)
-      setDisplay(Math.round(score * (0.7 + 0.3 * p)))
-      if (p < 1) raf = requestAnimationFrame(step)
+      const p = Math.min(1, Math.max(0, (now - t0 - 100) / 420))
+      node.textContent = String(Math.round(score * (0.7 + 0.3 * p)))
+      if (p < 1 && !document.hidden) raf = requestAnimationFrame(step)
+      else node.textContent = String(score)
     }
     raf = requestAnimationFrame(step)
     return () => cancelAnimationFrame(raf)
@@ -124,48 +191,89 @@ function ResultPanel({ snapshot, events, result }: { snapshot: TGameSnapshot; ev
           ? 'DEAD HEAT.'
           : 'RUN REJECTED'
   return (
-    <SkinCardFrame skin={cardSkin} className="flex flex-1 flex-col items-center justify-center gap-4 p-5 text-center animate-reveal">
+    <SkinCardFrame
+      skin={cardSkin}
+      className="animate-reveal flex flex-1 flex-col items-center justify-center gap-4 p-5 text-center"
+    >
       <TrackView name="result_viewed" props={viewProps} />
       {challenge ? (
         <>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-spectral-violet">
+          <p className="text-spectral-violet text-[11px] tracking-[0.18em] uppercase">
             vs {challenge.handle} · {challenge.targetScore}
           </p>
-          <p className={`font-display text-4xl font-800 ${result.outcome === 'win' ? 'text-signal-lime' : result.outcome === 'loss' ? 'text-spectral-violet' : ''}`}>
+          <p
+            className={`font-display font-800 text-4xl ${result.outcome === 'win' ? 'text-signal-lime' : result.outcome === 'loss' ? 'text-spectral-violet' : ''}`}
+          >
             {outcomeTitle}
           </p>
         </>
       ) : (
-        <p className="text-[11px] uppercase tracking-[0.18em] text-spectral-cyan">Server validated</p>
+        <p className="text-spectral-cyan text-[11px] tracking-[0.18em] uppercase">
+          Server validated
+        </p>
       )}
-      <p className="tnum font-display text-6xl font-800">{display ?? score}</p>
+      <GhostAvatar
+        skin={profile?.cosmetics.equipped.ghost ?? undefined}
+        motion={
+          result.outcome === 'win' || result.isPersonalBest
+            ? 'win'
+            : result.outcome === 'loss'
+              ? 'loss'
+              : 'idle'
+        }
+        className="size-16"
+      />
+      <p
+        ref={scoreDisplay}
+        aria-label={`Validated score ${score}`}
+        className="tnum font-display font-800 text-6xl"
+      >
+        {score}
+      </p>
       {result.isPersonalBest && (
-        <p className="rounded-control border border-signal-lime/60 px-3 py-1 font-display text-xs font-800 tracking-[0.18em] text-signal-lime">
+        <p className="rounded-control border-signal-lime/60 font-display font-800 text-signal-lime border px-3 py-1 text-xs tracking-[0.18em]">
           NEW PERSONAL BEST
         </p>
       )}
       {result.xpAwarded > 0 && (
-        <p className="tnum text-xs text-ghost-muted">+{result.xpAwarded} XP</p>
+        <p className="tnum text-ghost-muted text-xs">+{result.xpAwarded} XP</p>
       )}
       {challenge && (
-        <p className="tnum text-sm text-ghost-muted">
+        <p className="tnum text-ghost-muted text-sm">
           {delta > 0 ? `+${delta}` : `${delta}`} against {challenge.targetScore}
         </p>
       )}
-      {metricsLine && <p className="text-xs text-ghost-muted">{metricsLine}</p>}
+      {Boolean(snapshot.playlist?.length) && (
+        <button
+          type="button"
+          disabled={createSession.isPending}
+          onClick={() => void nextPractice()}
+          className="rounded-control bg-spectral-violet font-600 text-ink-950 min-h-12 w-full px-4"
+        >
+          NEXT PLAYLIST GAME · {snapshot.playlist!.length} LEFT
+        </button>
+      )}
+      {metricsLine && <p className="text-ghost-muted text-xs">{metricsLine}</p>}
       <button
         type="button"
         onClick={() => leave('/play')}
-        className="flex min-h-12 w-full items-center justify-center rounded-control border border-white/15 px-5 text-sm font-600"
+        className="rounded-control font-600 flex min-h-12 w-full items-center justify-center border border-white/15 px-5 text-sm"
       >
         PLAY AGAIN · PRACTICE
       </button>
+      {challengeError && (
+        <p role="alert" className="text-rival-coral text-xs">
+          {challengeError}
+        </p>
+      )}
       {sharedUrl ? (
         <div className="w-full">
           <ShareButtons
             url={sharedUrl}
             title="Ghost60 challenge"
-            text={challenge ? `I just raced ${challenge.handle}'s ghost. Revenge?` : 'Race my ghost.'}
+            text={
+              challenge ? `I just raced ${challenge.handle}'s ghost. Revenge?` : 'Race my ghost.'
+            }
           />
         </div>
       ) : (
@@ -174,17 +282,14 @@ function ResultPanel({ snapshot, events, result }: { snapshot: TGameSnapshot; ev
             type="button"
             onClick={() => void makeChallenge()}
             disabled={createChallenge.isPending}
-            className="flex min-h-12 items-center justify-center rounded-control bg-spectral-cyan px-5 font-display text-sm font-800 tracking-[0.14em] text-ink-950 disabled:opacity-50"
+            className="rounded-control bg-spectral-cyan font-display font-800 text-ink-950 flex min-h-12 items-center justify-center px-5 text-sm tracking-[0.14em] disabled:opacity-50"
           >
             {createChallenge.isPending ? 'WORKING…' : challenge ? 'SEND REVENGE' : 'RACE MY GHOST'}
           </button>
-          {challengeError && (
-            <p role="alert" className="text-xs text-rival-coral">{challengeError}</p>
-          )}
           <button
             type="button"
             onClick={() => leave('/')}
-            className="flex min-h-12 items-center justify-center rounded-control border border-white/15 px-5 text-sm font-600"
+            className="rounded-control font-600 flex min-h-12 items-center justify-center border border-white/15 px-5 text-sm"
           >
             BACK TO TODAY
           </button>
@@ -207,15 +312,15 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
   if (session.phase === 'pending') {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-        <p className="font-display text-xl font-800">Saved offline</p>
-        <p className="max-w-xs text-sm leading-6 text-ghost-muted">
-          Connection dropped after your attempt was spent. The run is stored on this device and
-          will count once it reaches the server — no new ranked run until then.
+        <p className="font-display font-800 text-xl">Saved offline</p>
+        <p className="text-ghost-muted max-w-xs text-sm leading-6">
+          Connection dropped after your attempt was spent. The run is stored on this device and will
+          count once it reaches the server — no new ranked run until then.
         </p>
         <button
           type="button"
           onClick={() => void session.retryPending()}
-          className="flex min-h-12 w-full items-center justify-center rounded-control bg-spectral-cyan px-5 font-display text-sm font-800 tracking-[0.14em] text-ink-950"
+          className="rounded-control bg-spectral-cyan font-display font-800 text-ink-950 flex min-h-12 w-full items-center justify-center px-5 text-sm tracking-[0.14em]"
         >
           RETRY SUBMIT
         </button>
@@ -225,15 +330,15 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
   if (session.phase === 'error') {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-        <p className="font-display text-xl font-800">Could not submit</p>
-        <p className="text-sm text-rival-coral">{session.error ?? 'submit-failed'}</p>
+        <p className="font-display font-800 text-xl">Could not submit</p>
+        <p className="text-rival-coral text-sm">{session.error ?? 'submit-failed'}</p>
         <button
           type="button"
           onClick={() => {
             clear()
             router.push('/play')
           }}
-          className="flex min-h-12 w-full items-center justify-center rounded-control border border-white/15 px-5 text-sm font-600"
+          className="rounded-control font-600 flex min-h-12 w-full items-center justify-center border border-white/15 px-5 text-sm"
         >
           BACK TO PREFLIGHT
         </button>
@@ -243,8 +348,8 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
   if (!['pulse', 'snap', 'orbit', 'recall', 'shift', 'trace'].includes(snapshot.game.gameId)) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-        <p className="font-display text-xl font-800">Engine UI lands in Phase 8</p>
-        <p className="max-w-xs text-sm leading-6 text-ghost-muted">
+        <p className="font-display font-800 text-xl">Engine UI lands in Phase 8</p>
+        <p className="text-ghost-muted max-w-xs text-sm leading-6">
           {snapshot.game.gameId.toUpperCase()} scoring already works on the server — the playable
           renderer ships with the remaining engines.
         </p>
@@ -254,7 +359,7 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
             clear()
             router.push('/')
           }}
-          className="flex min-h-12 w-full items-center justify-center rounded-control border border-white/15 px-5 text-sm font-600"
+          className="rounded-control font-600 flex min-h-12 w-full items-center justify-center border border-white/15 px-5 text-sm"
         >
           BACK TO TODAY
         </button>
@@ -292,8 +397,8 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
           rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
         />
       )}
-      {(session.phase === 'countdown' || session.phase === 'finishing') && (
-        <CountOverlay count={session.phase === 'finishing' ? 0 : session.count} reduced={session.reduced} />
+      {session.countVisible && (session.phase === 'countdown' || session.phase === 'running') && (
+        <CountOverlay count={session.count} reduced={session.reduced} />
       )}
       {session.phase === 'submitting' && <BusyOverlay label="Validating on server…" />}
     </div>
@@ -314,17 +419,17 @@ export function RunClient() {
   }, [router, setSnapshot])
   if (!snapshot) return null
   return (
-    <div className="flex min-h-dvh flex-col bg-ink-950 text-ghost-text">
+    <div className="bg-ink-950 text-ghost-text flex min-h-dvh flex-col">
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 py-4 sm:max-w-2xl">
         <div className="flex items-center justify-between py-2">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-spectral-cyan">
+          <p className="text-spectral-cyan text-[11px] tracking-[0.18em] uppercase">
             {snapshot.game.gameId} · {snapshot.mode ?? (snapshot.challenge ? 'challenge' : 'run')}
           </p>
-          <Link href="/" className="text-xs text-ghost-muted">
+          <Link href="/" className="text-ghost-muted text-xs">
             Quit
           </Link>
         </div>
-        <RunActive snapshot={snapshot} />
+        <RunActive key={snapshot.token} snapshot={snapshot} />
       </div>
     </div>
   )

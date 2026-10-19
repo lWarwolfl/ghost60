@@ -4,7 +4,6 @@ import { db } from '@/drizzle'
 import { Challenge, ChallengeAttempt, DailyGame, Run, RunSession, User } from '@/drizzle/schema'
 import { SubmitRequestSchema } from '@/features/game/schemas/session.schema'
 import { getPlan } from '@/lib/game/entitlement'
-import { recordServerEvent } from '@/lib/analytics/server'
 import { getCurrentUser } from '@/lib/auth/server'
 import { eventDigest } from '@/games/core/digest'
 import type { GameInputEvent } from '@/games/core/game-module'
@@ -41,8 +40,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'bad-token' }, { status: 401 })
   }
 
-  let progressionInput: TProgressionInput | undefined
-  const response = await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
   await tx.select({ id: User.id }).from(User).where(eq(User.id, user.id)).for('update')
   const sessions = await tx.select().from(RunSession).where(eq(RunSession.id, payload.sessionId))
   const session = sessions[0]
@@ -161,29 +159,23 @@ export async function POST(req: Request) {
       }
     }
     let pastSelfOutcome: string | null = null
+    let pastSelfSourceScore: number | undefined
     if (session.mode === 'past_self') {
       const sourceId = (session.metadata as { sourceRunId?: string }).sourceRunId
       const source = sourceId ? (await tx.select().from(Run).where(and(eq(Run.id, sourceId), eq(Run.userId, user.id), eq(Run.dailyGameId, game.id), eq(Run.valid, true))))[0] : null
+      pastSelfSourceScore = source?.validatedScore
       if (source) pastSelfOutcome = result.valid ? result.score > source.validatedScore ? 'win' : result.score < source.validatedScore ? 'loss' : 'tie' : 'invalid'
     }
-    progressionInput = {
+    const progressionInput: TProgressionInput = {
       userId: user.id,
       run: { id: run.id, mode: run.mode, valid: run.valid, validatedScore: run.validatedScore, dailyGameId: run.dailyGameId },
-      engineId: game.gameId, gameDate: game.gameDate, outcome, attemptId, sourceScore, isGhostPlus: (await getPlan(user.id, tx)) === 'ghost_plus'
+      engineId: game.gameId, gameDate: game.gameDate, outcome, attemptId, sourceScore: sourceScore ?? pastSelfSourceScore, isGhostPlus: (await getPlan(user.id, tx)) === 'ghost_plus'
     }
-    return NextResponse.json({ run, outcome, pastSelfOutcome, progression: { xpAwarded: 0, unlocked: [], isPersonalBest: false } })
+    const applied = await applyProgression(progressionInput, tx)
+    return NextResponse.json({ run, outcome, pastSelfOutcome, progression: { xpAwarded: applied.xpAwarded, unlocked: applied.unlocked, isPersonalBest: applied.isPersonalBest } })
   } catch (e) {
     if (isConflict(e)) return NextResponse.json({ error: 'ranked-used' }, { status: 409 })
     throw e
   }
   })
-  if (!progressionInput) return response
-  try {
-    const applied = await applyProgression(progressionInput)
-    const body = await response.json()
-    return NextResponse.json({ ...body, progression: { xpAwarded: applied.xpAwarded, unlocked: applied.unlocked, isPersonalBest: applied.isPersonalBest } })
-  } catch {
-    await recordServerEvent('progression_failed', { operation: 'submit' }, user.id)
-    return response
-  }
 }

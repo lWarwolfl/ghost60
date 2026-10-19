@@ -11,13 +11,15 @@ export const PREFS_EVENT = 'ghost60:prefs'
 
 export function getMotionPref(): TMotionPref {
   if (typeof window === 'undefined') return 'system'
-  const v = window.localStorage.getItem(MOTION_KEY)
-  return v === 'reduced' || v === 'full' ? v : 'system'
+  try {
+    const v = window.localStorage.getItem(MOTION_KEY)
+    return v === 'reduced' || v === 'full' ? v : 'system'
+  } catch { return 'system' }
 }
 
 export function getSoundPref(): TSoundPref {
   if (typeof window === 'undefined') return 'off'
-  return window.localStorage.getItem(SOUND_KEY) === 'on' ? 'on' : 'off'
+  try { return window.localStorage.getItem(SOUND_KEY) === 'on' ? 'on' : 'off' } catch { return 'off' }
 }
 
 export function setMotionPref(v: TMotionPref) {
@@ -36,14 +38,16 @@ export function useReducedMotion() {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
     const compute = () => {
       const pref = getMotionPref()
-      setReduced(pref === 'reduced' || (pref === 'system' && mq.matches))
+      setReduced(pref === 'reduced' || mq.matches)
     }
     compute()
     mq.addEventListener('change', compute)
     window.addEventListener(PREFS_EVENT, compute)
+    window.addEventListener('storage', compute)
     return () => {
       mq.removeEventListener('change', compute)
       window.removeEventListener(PREFS_EVENT, compute)
+      window.removeEventListener('storage', compute)
     }
   }, [])
   return reduced

@@ -6,7 +6,7 @@ const { query, insert, update, lock, currentUser, daily, database } = vi.hoisted
   const update = vi.fn()
   const lock = vi.fn().mockResolvedValue([{ id: 'user' }])
   const currentUser = vi.fn().mockResolvedValue({ id: 'user' })
-  const daily = vi.fn().mockResolvedValue({ id: 'daily', gameId: 'pulse', engineVersion: 1 })
+  const daily = vi.fn().mockResolvedValue({ id: 'daily', gameId: 'pulse', engineVersion: 1, gameDate: new Date().toISOString().slice(0, 10), publishAt: new Date(0), status: 'live' })
   const reader = { select: () => ({ from: (table: unknown) => ({ where: (...args: unknown[]) => Object.assign(Promise.resolve(query(table, ...args)), { for: lock }) }) }),
     insert: () => ({ values: insert }), update: () => ({ set: (values: unknown) => ({ where: () => update(values) }) }) }
   let pending = Promise.resolve()
@@ -37,7 +37,7 @@ describe('daily charges', () => {
   it('reserves five combined starts and excludes challenges', () => {
     const sessions = ['ranked', 'practice', 'past_self', 'practice', 'practice', 'challenge'].map((mode) => session({ mode }))
     expect(chargeSnapshot(sessions, 'free', now)).toEqual({
-      limit: 5, used: 5, remaining: 0, resetAt: '2026-10-19T00:00:00.000Z', rankedAvailable: true, plan: 'free'
+      limit: 5, used: 5, remaining: 0, resetAt: '2026-10-19T00:00:00.000Z', rankedAvailable: true, resumableModes: ['ranked', 'practice', 'past_self', 'challenge'], plan: 'free'
     })
   })
   it('counts abandoned consumed runs even when expired or cancelled', () => {
@@ -54,6 +54,13 @@ describe('daily charges', () => {
   })
   it('keeps a consumed ranked attempt spent after its expiry', () => {
     expect(chargeSnapshot([session({ mode: 'ranked', consumedAt: now, state: 'expired', expiresAt: new Date(0) })], 'free', now).rankedAvailable).toBe(false)
+  })
+  it('advertises reservation resume at zero without exposing a consumed restart', () => {
+    const sessions = [session({ mode: 'ranked' }), ...Array.from({ length: 4 }, () => session({ consumedAt: now }))]
+    expect(chargeSnapshot(sessions, 'free', now)).toMatchObject({ remaining: 0, resumableModes: ['ranked'] })
+  })
+  it('keeps challenge-backed ranked reservations free', () => {
+    expect(chargeSnapshot([session({ mode: 'ranked', challengeId: 'challenge' })], 'free', now)).toMatchObject({ used: 0, remaining: 5 })
   })
   it('exposes paid unlimited without increasing ranked attempts', () => {
     expect(chargeSnapshot([session({ mode: 'ranked', consumedAt: now })], 'ghost_plus', now)).toMatchObject({ limit: null, remaining: null, used: 1, rankedAvailable: false, plan: 'ghost_plus' })

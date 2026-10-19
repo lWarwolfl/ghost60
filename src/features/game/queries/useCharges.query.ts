@@ -8,6 +8,7 @@ export type TCharges = {
   used: number
   resetAt: string
   rankedAvailable: boolean
+  resumableModes: string[]
   plan: 'free' | 'ghost_plus'
 }
 

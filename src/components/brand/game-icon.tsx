@@ -99,8 +99,8 @@ export function GameIcon({
         />
         <circle
           style={
-            motion === 'active' && orbitAngle !== undefined
-              ? { transform: `rotate(${orbitAngle - 180}deg)` }
+            (motion === 'active' || motion === 'complete') && Number.isFinite(orbitAngle)
+              ? { transform: `rotate(${(orbitAngle ?? 180) - 180}deg)` }
               : undefined
           }
           data-part="marker"
