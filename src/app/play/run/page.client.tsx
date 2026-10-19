@@ -84,26 +84,16 @@ function CountOverlay({ count, reduced }: { count: number; reduced: boolean }) {
   )
 }
 
-function BusyOverlay({ label }: { label: string }) {
-  return (
-    <div
-      className="bg-ink-950/80 absolute inset-0 flex flex-col items-center justify-center gap-3"
-      role="status"
-    >
-      <span className="border-t-spectral-cyan size-10 animate-spin rounded-full border-2 border-white/15" />
-      <p className="text-ghost-muted text-sm">{label}</p>
-    </div>
-  )
-}
-
 function ResultPanel({
   snapshot,
   events,
   result,
+  onRetry,
 }: {
   snapshot: TGameSnapshot
   events: GameInputEvent[]
   result: TRunResult
+  onRetry?: () => void
 }) {
   const router = useRouter()
   const { clear } = useGameStore()
@@ -181,15 +171,19 @@ function ResultPanel({
     }
   }
   const delta = challenge ? score - challenge.targetScore : 0
-  const outcomeTitle = !challenge
-    ? null
-    : result.outcome === 'win'
-      ? 'YOU CAUGHT IT.'
-      : result.outcome === 'loss'
-        ? 'IT GOT AWAY.'
-        : result.outcome === 'tie'
-          ? 'DEAD HEAT.'
-          : 'RUN REJECTED'
+  const outcomeTitle = result.provisional
+    ? challenge
+      ? 'RACE SYNCING…'
+      : null
+    : !challenge
+      ? null
+      : result.outcome === 'win'
+        ? 'YOU CAUGHT IT.'
+        : result.outcome === 'loss'
+          ? 'IT GOT AWAY.'
+          : result.outcome === 'tie'
+            ? 'DEAD HEAT.'
+            : 'RUN REJECTED'
   return (
     <SkinCardFrame
       skin={cardSkin}
@@ -208,14 +202,21 @@ function ResultPanel({
           </p>
         </>
       ) : (
-        <p className="text-spectral-cyan text-[11px] tracking-[0.18em] uppercase">
-          Server validated
+        <p
+          className={`text-[11px] tracking-[0.18em] uppercase ${result.syncError ? 'text-rival-coral' : 'text-spectral-cyan'}`}
+          role="status"
+        >
+          {result.provisional
+            ? result.syncError
+              ? 'Local run · not synced'
+              : 'Saved locally · syncing…'
+            : 'Server validated'}
         </p>
       )}
       <GhostAvatar
         skin={profile?.cosmetics.equipped.ghost ?? undefined}
         motion={
-          result.outcome === 'win' || result.isPersonalBest
+          result.outcome === 'win' || result.isPersonalBest || result.isLocalBest
             ? 'win'
             : result.outcome === 'loss'
               ? 'loss'
@@ -225,18 +226,38 @@ function ResultPanel({
       />
       <p
         ref={scoreDisplay}
-        aria-label={`Validated score ${score}`}
+        aria-label={`${result.provisional ? 'Local' : 'Validated'} score ${score}`}
         className="tnum font-display font-800 text-6xl"
       >
         {score}
       </p>
-      {result.isPersonalBest && (
+      {result.isPersonalBest ? (
         <p className="rounded-control border-signal-lime/60 font-display font-800 text-signal-lime border px-3 py-1 text-xs tracking-[0.18em]">
           NEW PERSONAL BEST
         </p>
-      )}
+      ) : result.isLocalBest && result.provisional ? (
+        <p className="rounded-control font-display font-800 text-signal-lime/80 border border-signal-lime/30 px-3 py-1 text-xs tracking-[0.18em]">
+          LOCAL BEST
+        </p>
+      ) : null}
       {result.xpAwarded > 0 && (
         <p className="tnum text-ghost-muted text-xs">+{result.xpAwarded} XP</p>
+      )}
+      {result.provisional && (
+        <p className="text-ghost-muted max-w-xs text-xs leading-5">
+          {result.syncError
+            ? `Saved on this device. ${result.syncError === 'offline' ? 'It will sync when you are back online.' : result.syncError}`
+            : 'Your run is safe on this device. The server confirms it in the background.'}
+        </p>
+      )}
+      {result.provisional && onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-control min-h-10 border border-white/15 px-4 text-xs font-600"
+        >
+          RETRY SYNC
+        </button>
       )}
       {challenge && (
         <p className="tnum text-ghost-muted text-sm">
@@ -281,10 +302,16 @@ function ResultPanel({
           <button
             type="button"
             onClick={() => void makeChallenge()}
-            disabled={createChallenge.isPending}
+            disabled={createChallenge.isPending || result.provisional}
             className="rounded-control bg-spectral-cyan font-display font-800 text-ink-950 flex min-h-12 items-center justify-center px-5 text-sm tracking-[0.14em] disabled:opacity-50"
           >
-            {createChallenge.isPending ? 'WORKING…' : challenge ? 'SEND REVENGE' : 'RACE MY GHOST'}
+            {createChallenge.isPending
+              ? 'WORKING…'
+              : result.provisional
+                ? 'SYNCING GHOST…'
+                : challenge
+                  ? 'SEND REVENGE'
+                  : 'RACE MY GHOST'}
           </button>
           <button
             type="button"
@@ -306,25 +333,12 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
 
   if (session.phase === 'result' && session.result) {
     return (
-      <ResultPanel snapshot={snapshot} events={session.eventsRef.current} result={session.result} />
-    )
-  }
-  if (session.phase === 'pending') {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-        <p className="font-display font-800 text-xl">Saved offline</p>
-        <p className="text-ghost-muted max-w-xs text-sm leading-6">
-          Connection dropped after your attempt was spent. The run is stored on this device and will
-          count once it reaches the server — no new ranked run until then.
-        </p>
-        <button
-          type="button"
-          onClick={() => void session.retryPending()}
-          className="rounded-control bg-spectral-cyan font-display font-800 text-ink-950 flex min-h-12 w-full items-center justify-center px-5 text-sm tracking-[0.14em]"
-        >
-          RETRY SUBMIT
-        </button>
-      </div>
+      <ResultPanel
+        snapshot={snapshot}
+        events={session.eventsRef.current}
+        result={session.result}
+        onRetry={() => void session.retryPending()}
+      />
     )
   }
   if (session.phase === 'error') {
@@ -400,7 +414,6 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
       {session.countVisible && (session.phase === 'countdown' || session.phase === 'running') && (
         <CountOverlay count={session.count} reduced={session.reduced} />
       )}
-      {session.phase === 'submitting' && <BusyOverlay label="Validating on server…" />}
     </div>
   )
 }

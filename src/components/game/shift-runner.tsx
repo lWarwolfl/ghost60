@@ -148,19 +148,16 @@ export function ShiftRunner({
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-2 text-sm">
+      <div className="game-hud">
         <canvas ref={avatarRef} width={32} height={32} className="size-8 shrink-0" aria-hidden="true" />
-        <span ref={timeRef} className="tnum text-ghost-muted">
+        <span ref={timeRef} className="game-timer">
           {(durationMs / 1000).toFixed(1)}s
         </span>
-        <span
-          ref={statusRef}
-          className="rounded-control bg-surface-700 px-3 py-1 font-display text-xs font-800 tracking-[0.14em] text-spectral-cyan"
-        >
-          CARD 1
+        <span ref={statusRef} className="game-chip flex-1">
+          Card 1
         </span>
-        <span className="tnum flex items-center gap-2 font-600" aria-live="off">
-          {rivalScore !== null && <span className="text-xs font-600 text-spectral-violet">RIVAL {rivalScore}</span>}
+        <span className="game-score flex items-center gap-2" aria-live="off">
+          {rivalScore !== null && <span className="text-xs font-600 text-spectral-violet">R {rivalScore}</span>}
           {score}
         </span>
       </div>
@@ -177,7 +174,7 @@ export function ShiftRunner({
         {rule === 'reversed' ? '⇄ REVERSED — TAP THE OPPOSITE SIDE' : '⇉ RULE — TAP THE ARROW SIDE'}
       </div>
 
-      <div className="relative flex flex-1 flex-col items-center justify-center gap-2 py-4" aria-hidden={current === -1}>
+      <div className="game-arena relative mt-2 flex flex-1 flex-col items-center justify-center gap-2 py-4" aria-hidden={current === -1}>
         {current === -1 ? (
           <p className="text-sm text-ghost-muted">All cards answered.</p>
         ) : (
@@ -219,7 +216,7 @@ export function ShiftRunner({
           →
         </button>
       </div>
-      <p className="py-2 text-center text-xs text-ghost-muted">Arrow keys work too · every 5th card reverses</p>
+      <p className="game-hint">Arrow keys work too · every 5th card reverses</p>
     </div>
   )
 }

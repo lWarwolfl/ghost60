@@ -54,6 +54,105 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.game-arena {
+  border: 1px solid rgba(245, 247, 255, 0.1);
+  border-radius: var(--radius-card);
+  background:
+    radial-gradient(120% 85% at 50% 38%, rgba(98, 247, 230, 0.075), transparent 58%),
+    radial-gradient(90% 70% at 82% 108%, rgba(169, 139, 255, 0.09), transparent 62%),
+    linear-gradient(rgba(245, 247, 255, 0.032) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(245, 247, 255, 0.032) 1px, transparent 1px),
+    #0b0f1a;
+  background-size:
+    auto,
+    auto,
+    28px 28px,
+    28px 28px,
+    auto;
+  box-shadow:
+    inset 0 1px 0 rgba(245, 247, 255, 0.05),
+    0 28px 70px -34px rgba(0, 0, 0, 0.95);
+}
+
+.game-hud {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 2px;
+}
+
+.game-timer {
+  color: var(--color-ghost-muted);
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  min-width: 3.25rem;
+  text-align: right;
+}
+
+.game-chip {
+  background: color-mix(in srgb, var(--color-surface-700) 78%, transparent);
+  border-radius: var(--radius-control);
+  color: var(--color-spectral-cyan);
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.3rem 0.65rem;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.game-score {
+  flex-shrink: 0;
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.game-subhud {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 1.25rem;
+  padding: 0 2px 4px;
+}
+
+.game-pips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.game-pip {
+  border-radius: 999px;
+  height: 4px;
+  width: 10px;
+  background: rgba(245, 247, 255, 0.14);
+}
+
+.game-pip[data-state='hit'] {
+  background: var(--color-signal-lime);
+}
+
+.game-pip[data-state='miss'] {
+  background: var(--color-rival-coral);
+}
+
+.game-hint {
+  color: var(--color-ghost-muted);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  padding: 0.5rem 0;
+  text-align: center;
+}
+
 @keyframes enter {
   from {
     opacity: 0;

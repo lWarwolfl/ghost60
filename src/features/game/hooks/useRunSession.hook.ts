@@ -6,11 +6,13 @@ import { useGameStore, type TPublicGame } from '@/features/game/store/game-store
 import { audio } from '@/lib/game/audio'
 import { countdownState, inputTime, runClock, consumptionRequest } from '@/lib/game/gameplay-motion'
 import { clearPending, loadPending, savePending } from '@/lib/game/pending-store'
+import { markLocalRunSynced, recordLocalRun } from '@/lib/game/local-progress'
 import { useEquippedSkin } from '@/lib/hooks/useEquippedSkin.hook'
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion.hook'
 import type { GameInputEvent } from '@/games/core/game-module'
+import { getGame } from '@/games/registry'
 
-export type TRunPhase = 'countdown' | 'running' | 'finishing' | 'submitting' | 'pending' | 'result' | 'error'
+export type TRunPhase = 'countdown' | 'running' | 'finishing' | 'result' | 'error'
 
 export type TRunResult = {
   score: number
@@ -19,6 +21,9 @@ export type TRunResult = {
   outcome: string | null
   isPersonalBest: boolean
   xpAwarded: number
+  provisional?: boolean
+  isLocalBest?: boolean
+  syncError?: string | null
 }
 
 type TLogInput = Omit<Extract<GameInputEvent, { type: 'tap' }>, 't'> | Omit<Extract<GameInputEvent, { type: 'choice' }>, 't'> | Omit<Extract<GameInputEvent, { type: 'pointer_down' | 'pointer_move' | 'pointer_up' }>, 't'>
@@ -55,33 +60,66 @@ export function useRunSession(game: TPublicGame, token: string) {
       if (submittingRef.current) return
       submittingRef.current = true
       acceptingRef.current = false
-      setPhase('submitting')
+      let replay = { score: 0, valid: false }
+      try {
+        const mod = getGame(game.gameId)
+        const config = mod.validateConfig(game.config)
+        replay = mod.scoreRun({ seed: game.seed, config, events, visibilityInterruptions })
+      } catch {}
+      const local = recordLocalRun({
+        id: token,
+        gameId: game.gameId,
+        gameDate: game.gameDate,
+        mode: 'run',
+        score: replay.score,
+        valid: replay.valid
+      })
       await savePending({ token, gameId: game.gameId, events, visibilityInterruptions, savedAt: Date.now() }).catch(() => undefined)
+      const localResult: TRunResult = {
+        score: replay.score,
+        valid: replay.valid,
+        runId: `local:${token}`,
+        outcome: null,
+        isPersonalBest: false,
+        xpAwarded: 0,
+        provisional: true,
+        isLocalBest: local.personalBest,
+        syncError: null
+      }
+      setResult(localResult)
+      setPhase('result')
       try {
         const data = await submitRef.current({ token, events, visibilityInterruptions })
         await clearPending(token).catch(() => undefined)
+        const patch = {
+          score: data.run.validatedScore,
+          xp: data.progression?.xpAwarded ?? 0,
+          valid: data.run.valid,
+          personalBest: data.progression?.isPersonalBest ?? false
+        }
+        markLocalRunSynced(token, patch)
         setResult({
           score: data.run.validatedScore,
           valid: data.run.valid,
           runId: String(data.run.id),
           outcome: data.outcome,
-          isPersonalBest: data.progression?.isPersonalBest ?? false,
-          xpAwarded: data.progression?.xpAwarded ?? 0
+          isPersonalBest: patch.personalBest,
+          xpAwarded: patch.xp,
+          provisional: false,
+          isLocalBest: false,
+          syncError: null
         })
-        setPhase('result')
-        if (data.run.valid && (data.outcome === 'win' || data.progression?.isPersonalBest)) audio.win()
+        if (data.run.valid && (data.outcome === 'win' || patch.personalBest)) audio.win()
       } catch (e) {
-        if (e instanceof TypeError) {
-          setPhase('pending')
-        } else {
-          setError(e instanceof Error ? e.message : 'submit-failed')
-          setPhase('error')
-        }
+        setResult({
+          ...localResult,
+          syncError: e instanceof TypeError ? 'offline' : e instanceof Error ? e.message : 'submit-failed'
+        })
       } finally {
         submittingRef.current = false
       }
     },
-    [game.gameId, token]
+    [game, token]
   )
 
   useEffect(() => {

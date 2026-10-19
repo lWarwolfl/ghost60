@@ -1,4 +1,5 @@
 import type { GameInputEvent } from '@/games/core/game-module'
+import { markLocalRunSynced } from '@/lib/game/local-progress'
 
 export type TPendingSubmission = {
   token: string
@@ -50,4 +51,40 @@ export function clearPending(token: string) {
 
 export function listPending() {
   return tx('readonly', (s) => s.getAll()) as Promise<TPendingSubmission[]>
+}
+
+export async function flushPending(request: typeof fetch = fetch) {
+  if (typeof indexedDB === 'undefined') return 0
+  const items = await listPending().catch(() => [])
+  let synced = 0
+  for (const item of items) {
+    try {
+      const res = await request('/api/game/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: item.token,
+          events: item.events,
+          visibilityInterruptions: item.visibilityInterruptions
+        })
+      })
+      if (res.ok) {
+        synced += 1
+        const data = (await res.json().catch(() => null)) as {
+          run?: { validatedScore?: number; valid?: boolean }
+          progression?: { xpAwarded?: number; isPersonalBest?: boolean }
+        } | null
+        if (data?.run && typeof data.run.validatedScore === 'number') {
+          markLocalRunSynced(item.token, {
+            score: data.run.validatedScore,
+            valid: data.run.valid ?? true,
+            xp: data.progression?.xpAwarded ?? 0,
+            personalBest: data.progression?.isPersonalBest ?? false
+          })
+        }
+        await clearPending(item.token).catch(() => undefined)
+      }
+    } catch {}
+  }
+  return synced
 }

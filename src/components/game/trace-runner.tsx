@@ -270,26 +270,31 @@ export function TraceRunner({
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-2 text-sm">
+      <div className="game-hud">
         <canvas ref={avatarRef} width={32} height={32} className="size-8 shrink-0" aria-hidden="true" />
-        <span ref={timeRef} className="tnum text-ghost-muted">
+        <span ref={timeRef} className="game-timer">
           {(durationMs / 1000).toFixed(1)}s
         </span>
-        <span ref={gatesRef} className="tnum rounded-control bg-surface-700 px-3 py-1 font-display text-xs font-800 tracking-[0.14em] text-spectral-cyan">
-          GATES 0/{gates.length}
+        <span ref={gatesRef} className="game-chip flex-1">
+          Gates 0/{gates.length}
         </span>
-        <span className="tnum flex items-center gap-2 font-600" aria-live="off">
-          {rivalScore !== null && <span className="text-xs font-600 text-spectral-violet">RIVAL {rivalScore}</span>}
+        <span className="game-score flex items-center gap-2" aria-live="off">
+          {rivalScore !== null && <span className="text-xs font-600 text-spectral-violet">R {rivalScore}</span>}
           {score}
         </span>
       </div>
-      <label className="flex items-center gap-2 text-xs text-ghost-muted">Precision <meter ref={precisionRef} min={0} max={1200} low={400} high={900} optimum={1200} defaultValue={0} className="min-w-0 flex-1" /></label>
+      <div className="game-subhud">
+        <label className="flex flex-1 items-center gap-2 text-[10px] tracking-[0.16em] text-ghost-muted uppercase">
+          Precision
+          <meter ref={precisionRef} min={0} max={1200} low={400} high={900} optimum={1200} defaultValue={0} className="min-w-0 flex-1" />
+        </label>
+      </div>
       <canvas
         ref={canvasRef}
         role="application"
         aria-label="Trace corridor. Drag through the gates in order. Arrows move the cursor, Space starts, Enter lifts."
         style={{ opacity: session.phase === 'finishing' ? 0.6 : 1, transition: 'opacity 120ms linear' }}
-        className="min-h-75 w-full flex-1 touch-none rounded-card border border-white/10 bg-ink-900"
+        className="game-arena min-h-75 w-full flex-1 touch-none"
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId)
           down(toBoard(e.clientX, e.clientY))
@@ -300,7 +305,7 @@ export function TraceRunner({
         onPointerUp={(e) => up(toBoard(e.clientX, e.clientY))}
         onPointerCancel={(e) => up(toBoard(e.clientX, e.clientY))}
       />
-      <p className="py-2 text-center text-xs text-ghost-muted">Drag through every gate in order · keyboard works too</p>
+      <p className="game-hint">Drag through every gate in order · keyboard works too</p>
     </div>
   )
 }

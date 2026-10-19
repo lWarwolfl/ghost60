@@ -6,6 +6,7 @@ import { Ghost60Mark } from '@/components/brand/ghost60-mark'
 import { ResetCountdown } from '@/components/game/reset-countdown'
 import { useCharges } from '@/features/game/queries/useCharges.query'
 import { useTodayGame } from '@/features/game/queries/useTodayGame.query'
+import { useLocalProgress } from '@/lib/hooks/useLocalProgress.hook'
 import { Footer } from '@/components/layout/footer'
 import { Header } from '@/components/layout/header'
 
@@ -30,6 +31,7 @@ const STEPS = [
 export function HomeClient() {
   const { data: today, error, isPending, isError, refetch } = useTodayGame()
   const charges = useCharges()
+  const local = useLocalProgress()
   return (
     <div className="flex min-h-dvh flex-col bg-ink-950 text-ghost-text">
       <Header />
@@ -96,6 +98,32 @@ export function HomeClient() {
             </span>
           </div>
         </section>
+
+        {local.runs.length > 0 && (
+          <section
+            aria-label="Local progress"
+            className="rounded-card bg-ink-900 flex items-center justify-between gap-4 border border-white/10 px-5 py-4"
+          >
+            <div>
+              <p className="text-spectral-cyan text-[10px] tracking-[0.18em] uppercase">
+                On this device
+              </p>
+              <p className="tnum mt-1 text-sm">
+                {local.runs.length} saved {local.runs.length === 1 ? 'run' : 'runs'}
+                {local.xpTotal > 0 ? ` · ${local.xpTotal} XP` : ''}
+              </p>
+            </div>
+            <span
+              className={`rounded-control px-2.5 py-1 text-[10px] tracking-[0.14em] uppercase ${
+                local.pending
+                  ? 'text-signal-amber bg-signal-amber/10'
+                  : 'text-signal-lime bg-signal-lime/10'
+              }`}
+            >
+              {local.pending ? `${local.pending} syncing` : 'synced'}
+            </span>
+          </section>
+        )}
 
         <section aria-labelledby="ritual" className="flex flex-col gap-3">
           <h2 id="ritual" className="font-display text-lg font-800 tracking-wide">

@@ -235,28 +235,33 @@ export function OrbitRunner({
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-2 text-sm">
+      <div className="game-hud">
         <canvas ref={avatarRef} width={32} height={32} className="size-8 shrink-0" aria-hidden="true" />
-        <span ref={timeRef} className="tnum text-ghost-muted">
+        <span ref={timeRef} className="game-timer">
           {(durationMs / 1000).toFixed(1)}s
         </span>
-        <span className="tnum text-xs text-ghost-muted">
-          TARGET {Math.min(targets.length, done + 1)}/{targets.length}
-          {rivalScore !== null && <span className="ml-2 text-spectral-violet">RIVAL {rivalScore}</span>}
+        <span className="game-chip flex-1">
+          Target {Math.min(targets.length, done + 1)}/{targets.length}
         </span>
-        <span className="tnum font-600" aria-live="off">
+        <span className="game-score" aria-live="off">
           {score}
         </span>
+      </div>
+      <div className="game-subhud">
+        <span className="text-[10px] tracking-[0.16em] text-spectral-violet uppercase">
+          {rivalScore !== null ? `Rival ${rivalScore}` : 'Tap inside the bright arc'}
+        </span>
+        <span className="text-[10px] tracking-[0.16em] text-ghost-muted uppercase">Space taps at marker</span>
       </div>
       <canvas
         ref={canvasRef}
         role="application"
         aria-label="Orbit field. Tap when the marker enters the bright arc. Space taps at the marker."
         style={{ opacity: session.phase === 'finishing' ? 0.6 : 1, transition: 'opacity 120ms linear' }}
-        className="min-h-75 w-full flex-1 touch-none rounded-card border border-white/10 bg-ink-900"
+        className="game-arena min-h-75 w-full flex-1 touch-none"
         onPointerDown={(e) => tap(e.clientX, e.clientY)}
       />
-      <p className="py-2 text-center text-xs text-ghost-muted">Tap inside the arc · Space taps at the marker</p>
+      <p className="game-hint">Tap inside the arc · Space taps at the marker</p>
     </div>
   )
 }

@@ -219,16 +219,16 @@ export function RecallRunner({
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-2 text-sm">
+      <div className="game-hud">
         <canvas ref={avatarRef} width={32} height={32} className="size-8 shrink-0" aria-hidden="true" />
-        <span ref={timeRef} className="tnum text-ghost-muted">
-          {(durationMs / 1000).toFixed(1)}s
+        <span ref={timeRef} className="game-timer">
+          {(game.durationMs / 1000).toFixed(1)}s
         </span>
-        <span ref={statusRef} className="rounded-control bg-surface-700 px-3 py-1 font-display text-xs font-800 tracking-[0.14em] text-spectral-cyan">
-          SEQ 1
+        <span ref={statusRef} className="game-chip flex-1">
+          Seq 1
         </span>
-        <span className="tnum flex items-center gap-2 font-600" aria-live="off">
-          {rivalScore !== null && <span className="text-xs font-600 text-spectral-violet">RIVAL {rivalScore}</span>}
+        <span className="game-score flex items-center gap-2" aria-live="off">
+          {rivalScore !== null && <span className="text-xs font-600 text-spectral-violet">R {rivalScore}</span>}
           {score}
         </span>
       </div>
@@ -237,20 +237,21 @@ export function RecallRunner({
         role="application"
         aria-label="Recall grid. Watch the flashing cells, then repeat the sequence. Arrows move, Enter selects, digits work too."
         style={{ opacity: session.phase === 'finishing' ? 0.6 : 1, transition: 'opacity 120ms linear' }}
-        className="min-h-75 w-full flex-1 touch-none rounded-card border border-white/10 bg-ink-900"
+        className="game-arena min-h-75 w-full flex-1 touch-none"
         onPointerDown={(e) => {
           const canvas = canvasRef.current
           if (!canvas) return
           const rect = canvas.getBoundingClientRect()
-          const layout = recallLayout(rect.width, rect.height, grid)
-          const cell = cellAt(layout, e.clientX - rect.left, e.clientY - rect.top)
+          // Grid is drawn in bitmap pixels; map CSS pointer coords into the same space.
+          const layout = recallLayout(canvas.width, canvas.height, grid)
+          const cell = cellAt(layout, (e.clientX - rect.left) * (canvas.width / rect.width), (e.clientY - rect.top) * (canvas.height / rect.height))
           if (cell !== -1) {
             setFocus(cell)
             choose(cell)
           }
         }}
       />
-      <p className="py-2 text-center text-xs text-ghost-muted">Watch, then repeat · arrows + Enter work too</p>
+      <p className="game-hint">Watch, then repeat · arrows + Enter work too</p>
     </div>
   )
 }

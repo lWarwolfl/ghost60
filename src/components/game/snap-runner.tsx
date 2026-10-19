@@ -13,6 +13,7 @@ const SHAPES = ['circle', 'square', 'triangle', 'star', 'diamond', 'hex'] as con
 type TShape = (typeof SHAPES)[number]
 
 type TOption = { cx: number; cy: number; r: number; shape: TShape }
+type TVerdict = { t: number; ok: boolean; index: number; round: number }
 
 function layoutRound(seed: string, roundIndex: number, options: number, correct: number, w: number, h: number): { target: TShape; cells: TOption[] } {
   const rng = createRng(`${seed}:${roundIndex}`)
@@ -90,10 +91,12 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
   const avatarRef = useRef<HTMLCanvasElement>(null)
-  const verdictRef = useRef<{ t: number; ok: boolean; index: number; round: number } | null>(null)
+  const verdictRef = useRef<TVerdict | null>(null)
+  const autoRef = useRef(-1)
   const labelRef = useRef('')
   const [score, setScore] = useState(0)
   const [roundLabel, setRoundLabel] = useState('')
+  const [roundsDone, setRoundsDone] = useState(0)
   const config = useMemo(() => snapEngine.validateConfig(game.config) as TSnapConfig, [game.config])
   const durationMs = game.durationMs
   const layoutCache = useRef(new Map<string, { target: TShape; cells: TOption[] }>())
@@ -108,6 +111,15 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
       return fresh
     },
     [game.seed]
+  )
+
+  const endFor = useCallback(
+    (index: number) => {
+      const round = config.rounds[index]
+      const next = config.rounds[index + 1]?.presentedMs ?? durationMs
+      return Math.min(round.presentedMs + round.windowMs, next, durationMs)
+    },
+    [config.rounds, durationMs]
   )
 
   const setLabel = (v: string) => {
@@ -144,9 +156,31 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
       const { cssW, cssH, dpr } = view
       ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx2d.clearRect(0, 0, cssW, cssH)
-      const idx = session.eventsRef.current.length
+
+      let idx = session.eventsRef.current.length
+      let missed = 0
+      while (
+        session.phase === 'running' &&
+        idx < config.rounds.length &&
+        elapsed >= endFor(idx) &&
+        autoRef.current < idx
+      ) {
+        autoRef.current = idx
+        const t = session.logEvent({ type: 'choice', value: -1 })
+        if (t < 0) break
+        missed += 1
+        verdictRef.current = { t, ok: false, index: -1, round: idx }
+        idx += 1
+      }
+      if (missed > 0) {
+        const res = snapEngine.scoreRun({ seed: game.seed, config, events: session.eventsRef.current, visibilityInterruptions: 0 })
+        setScore(res.score)
+        setRoundsDone(session.eventsRef.current.length)
+        audio.miss()
+      }
+
       const round = config.rounds[idx]
-      if (round && elapsed >= round.presentedMs) {
+      if (round && elapsed >= round.presentedMs && elapsed < endFor(idx)) {
         const { target, cells } = getLayout(idx, round.options, round.correct, cssW, cssH)
         setLabel(`TAP THE ${target.toUpperCase()}`)
         const spawn = Math.min(1, Math.max(0, (elapsed - round.presentedMs) / 70))
@@ -154,22 +188,21 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
           ctx2d.save()
           ctx2d.globalAlpha = spawn
           const scale = session.reduced ? 1 : 0.96 + 0.04 * spawn
-          drawShape(ctx2d, c.shape, c.cx, c.cy, c.r * scale, '#f5f7ff', 'rgba(245,247,255,0.25)', 3)
+          ctx2d.shadowColor = 'rgba(98,247,230,0.16)'
+          ctx2d.shadowBlur = 18
+          drawShape(ctx2d, c.shape, c.cx, c.cy, c.r * scale, '#f5f7ff', 'rgba(245,247,255,0.32)', 3)
           ctx2d.restore()
         }
-        const remaining = Math.max(0, 1 - (elapsed - round.presentedMs) / round.windowMs)
-        ctx2d.strokeStyle = '#62f7e6'
-        ctx2d.lineWidth = 2
-        ctx2d.beginPath()
-        ctx2d.arc(cssW / 2, cssH / 2, Math.min(cssW, cssH) * 0.46, -Math.PI / 2, -Math.PI / 2 + remaining * Math.PI * 2)
-        ctx2d.stroke()
-        const late = elapsed > round.presentedMs + round.windowMs
-        if (late && timeRef.current) timeRef.current.textContent = 'too late'
-      } else if (round) {
-        setLabel('GET READY')
+        const end = endFor(idx)
+        const remaining = Math.max(0, 1 - (elapsed - round.presentedMs) / Math.max(1, end - round.presentedMs))
+        ctx2d.fillStyle = remaining < 0.3 ? '#ff668f' : 'rgba(98,247,230,0.7)'
+        ctx2d.fillRect(0, cssH - 3, cssW * remaining, 3)
+      } else if (round && elapsed < round.presentedMs) {
+        setLabel(`ROUND ${idx + 1} · GET READY`)
       } else {
-        setLabel('DONE — WAITING FOR CLOCK')
+        setLabel(idx >= config.rounds.length ? 'DONE — WAITING FOR CLOCK' : 'GET READY')
       }
+
       const seen = committedGhost(session.ghost?.timeline ?? [], session.eventsRef.current.map(e => e.t), elapsed)
       const progress = seen.at(-1)?.progress
       if (progress !== undefined) {
@@ -179,29 +212,43 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
         ctx2d.fillRect(cssW - 6, cssH * (1 - progress), 3, cssH * progress)
         ctx2d.restore()
       }
+
       const verdict = verdictRef.current
       if (verdict) {
         const age = elapsed - verdict.t
-        if (age >= 0 && age < 140) {
+        if (age >= 0 && age < 260) {
           const old = config.rounds[verdict.round]
-          const selected = getLayout(verdict.round, old.options, old.correct, cssW, cssH).cells[verdict.index]
-          if (selected) {
-            const scale = session.reduced || !verdict.ok ? 1 : age < 70 ? 1 - 0.08 * age / 70 : 0.92 + 0.12 * (age - 70) / 70
-            ctx2d.save()
-            ctx2d.globalAlpha = session.reduced ? 1 : 1 - age / 140
-            drawShape(ctx2d, selected.shape, selected.cx, selected.cy, selected.r * scale, verdict.ok ? '#c7ff5e' : '#f5f7ff', verdict.ok ? '#c7ff5e' : '#ff668f', 3)
-            ctx2d.restore()
-            drawFeedback(ctx2d, { x: selected.cx, y: selected.cy, radius: selected.r, age, duration: 120, reduced: session.reduced, kind: verdict.ok ? 'good' : 'miss', label: verdict.ok ? 'HIT' : 'MISS' })
+          const layout = getLayout(verdict.round, old.options, old.correct, cssW, cssH)
+          if (verdict.index === -1) {
+            const correctCell = layout.cells[old.correct]
+            if (correctCell) {
+              ctx2d.save()
+              ctx2d.globalAlpha = session.reduced ? 1 : 1 - age / 260
+              ctx2d.strokeStyle = '#ff668f'
+              ctx2d.lineWidth = 3
+              ctx2d.beginPath()
+              ctx2d.arc(correctCell.cx, correctCell.cy, correctCell.r * 0.86, 0, Math.PI * 2)
+              ctx2d.stroke()
+              ctx2d.restore()
+              drawFeedback(ctx2d, { x: correctCell.cx, y: correctCell.cy, radius: correctCell.r, age, duration: 240, reduced: session.reduced, kind: 'miss', label: 'TOO LATE' })
+            }
+          } else {
+            const selected = layout.cells[verdict.index]
+            if (selected) {
+              const scale = session.reduced || !verdict.ok ? 1 : age < 70 ? 1 - 0.08 * age / 70 : 0.92 + 0.12 * (age - 70) / 70
+              ctx2d.save()
+              ctx2d.globalAlpha = session.reduced ? 1 : 1 - age / 260
+              drawShape(ctx2d, selected.shape, selected.cx, selected.cy, selected.r * scale, verdict.ok ? '#c7ff5e' : '#f5f7ff', verdict.ok ? '#c7ff5e' : '#ff668f', 3)
+              ctx2d.restore()
+              drawFeedback(ctx2d, { x: selected.cx, y: selected.cy, radius: selected.r, age, duration: 240, reduced: session.reduced, kind: verdict.ok ? 'good' : 'miss', label: verdict.ok ? 'HIT' : 'MISS' })
+            }
           }
         }
       }
+
       if (timeRef.current) {
-        const late = round !== undefined && elapsed > round.presentedMs + round.windowMs
-        if (late) timeRef.current.textContent = 'too late'
-        else {
-          const left = Math.max(0, durationMs - elapsed)
-          timeRef.current.textContent = `${(left / 1000).toFixed(1)}s`
-        }
+        const left = Math.max(0, durationMs - elapsed)
+        timeRef.current.textContent = `${(left / 1000).toFixed(1)}s`
       }
       return elapsed < durationMs
     }
@@ -210,7 +257,7 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
       stop()
       ro.disconnect()
     }
-  }, [config, durationMs, getLayout, session])
+  }, [config, durationMs, endFor, getLayout, game.seed, session])
 
   const choose = (index: number) => {
     if (session.phase !== 'running') return
@@ -218,19 +265,20 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
     if (!canvas) return
     const idx = session.eventsRef.current.length
     const round = config.rounds[idx]
-    if (!round || index < 0 || index >= round.options || session.getElapsed() < round.presentedMs) return
+    const elapsed = session.getElapsed()
+    if (!round || index < 0 || index >= round.options) return
+    if (elapsed < round.presentedMs || elapsed > endFor(idx)) return
     audio.unlock()
-    if (session.logEvent({ type: 'choice', value: index }) < 0) return
-    const inWindow =
-      session.eventsRef.current[session.eventsRef.current.length - 1].t >= round.presentedMs &&
-      session.eventsRef.current[session.eventsRef.current.length - 1].t <= round.presentedMs + round.windowMs
-    const ok = inWindow && index === round.correct
-    verdictRef.current = { t: session.eventsRef.current[session.eventsRef.current.length - 1].t, ok, index, round: idx }
+    const t = session.logEvent({ type: 'choice', value: index })
+    if (t < 0) return
+    const ok = t >= round.presentedMs && t <= endFor(idx) && index === round.correct
+    verdictRef.current = { t, ok, index, round: idx }
     const res = snapEngine.scoreRun({ seed: game.seed, config, events: session.eventsRef.current, visibilityInterruptions: 0 })
     setScore(res.score)
+    setRoundsDone(session.eventsRef.current.length)
     if (ok) {
-      const reaction = session.eventsRef.current[session.eventsRef.current.length - 1].t - round.presentedMs
-      if (reaction < round.windowMs * 0.25) audio.perfect()
+      const reaction = t - round.presentedMs
+      if (reaction < (endFor(idx) - round.presentedMs) * 0.25) audio.perfect()
       else audio.correct()
     } else audio.miss()
   }
@@ -242,7 +290,7 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
     const idx = session.eventsRef.current.length
     const round = config.rounds[idx]
     if (!round || session.getElapsed() < round.presentedMs) return
-    const { cells } = layoutRound(game.seed, idx, round.options, round.correct, rect.width, rect.height)
+    const { cells } = getLayout(idx, round.options, round.correct, rect.width, rect.height)
     const x = clientX - rect.left
     const y = clientY - rect.top
     for (let i = 0; i < cells.length; i += 1) {
@@ -262,29 +310,48 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  const choices = session.eventsRef.current.filter((e) => e.type === 'choice')
+  const pips = config.rounds.map((round, i) => {
+    const choice = choices[i]
+    if (!choice || choice.value === undefined) return 'open' as const
+    const end = endFor(i)
+    return choice.t >= round.presentedMs && choice.t <= end && choice.value === round.correct ? 'hit' as const : 'miss' as const
+  })
+  const roundNumber = Math.min(roundsDone + 1, config.rounds.length)
+
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-2 text-sm">
+      <div className="game-hud">
         <canvas ref={avatarRef} width={32} height={32} className="size-8 shrink-0" aria-hidden="true" />
-        <span ref={timeRef} className="tnum text-ghost-muted">
+        <span ref={timeRef} className="game-timer" aria-hidden="true">
           {(game.durationMs / 1000).toFixed(1)}s
         </span>
-        <span className="rounded-control bg-surface-700 px-3 py-1 font-display text-xs font-800 tracking-[0.14em] text-spectral-cyan">
-          {roundLabel}
+        <span className="game-chip flex-1" aria-live="polite">
+          {roundLabel || 'GET READY'}
         </span>
-        <span className="tnum font-600" aria-live="off">
+        <span className="game-score" aria-live="off">
           {score}
         </span>
+      </div>
+      <div className="game-subhud">
+        <span className="text-[10px] tracking-[0.16em] text-ghost-muted uppercase">
+          Round {roundNumber}/{config.rounds.length}
+        </span>
+        <div className="game-pips" aria-label="Round results">
+          {pips.map((state, i) => (
+            <span key={i} className="game-pip" data-state={state} aria-label={`Round ${i + 1}: ${state}`} />
+          ))}
+        </div>
       </div>
       <canvas
         ref={canvasRef}
         role="application"
         aria-label="Snap field. Tap the shape named in the rule. Keys 1 to 8 work too."
         style={{ opacity: session.phase === 'finishing' ? 0.6 : 1, transition: 'opacity 120ms linear' }}
-        className="min-h-75 w-full flex-1 touch-none rounded-card border border-white/10 bg-ink-900"
+        className="game-arena min-h-75 w-full flex-1 touch-none"
         onPointerDown={(e) => tapAt(e.clientX, e.clientY)}
       />
-      <p className="py-2 text-center text-xs text-ghost-muted">Rule never uses color alone · keys 1–8 work too</p>
+      <p className="game-hint">Rule never uses color alone · keys 1–8 work too</p>
     </div>
   )
 }
