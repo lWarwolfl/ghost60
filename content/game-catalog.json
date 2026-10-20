@@ -41,7 +41,7 @@
       "skill": "timing-rhythm",
       "durationMs": 45000,
       "icon": "games/orbit.svg",
-      "instruction": "Lock the marker inside each target arc.",
+      "instruction": "Wait for the arc to turn cyan, then lock the marker inside it. Early taps cost points.",
       "ghostPolicy": "rival lock notch appears only after local tap",
       "modifiers": [
         "classic",

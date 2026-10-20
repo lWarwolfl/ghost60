@@ -24,6 +24,14 @@ function lineEvents(t0 = 0, step = 50): GameInputEvent[] {
 }
 
 describe('trace scorer fixtures', () => {
+  it('accepts longer trace paths', () => {
+    const long = traceEngine.validateConfig({
+      gates: Array.from({ length: 20 }, (_, i) => ({ x: 500 + i * 400, y: 5000, r: 400 })),
+      corridorHalf: 900
+    })
+    expect(long.gates).toHaveLength(20)
+  })
+
   it('scores a clean line with bonus', () => {
     const r = traceEngine.scoreRun({ seed: 's', config, events: lineEvents(), visibilityInterruptions: 0 })
     expect(r).toMatchObject({ valid: true, metrics: { gates: 3, passed: 3, precision: 1200 } })

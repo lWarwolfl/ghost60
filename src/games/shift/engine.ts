@@ -85,15 +85,17 @@ export const shiftEngine: GameModule<TShiftConfig> = {
     let cum = 0
     const timeline = config.cards.map((card, i) => {
       const choice = choices[i]
+      let delta = 0
       if (choice && choice.value !== undefined) {
         const inWindow = choice.t >= card.presentedMs && choice.t <= card.presentedMs + card.windowMs
         if (inWindow && choice.value === card.correct) {
-          cum += 500 + Math.round(300 * Math.max(0, 1 - (choice.t - card.presentedMs) / card.windowMs))
+          delta = 500 + Math.round(300 * Math.max(0, 1 - (choice.t - card.presentedMs) / card.windowMs))
         } else {
-          cum -= 200
+          delta = -200
         }
       }
-      return { t: card.presentedMs + card.windowMs, progress: (i + 1) / config.cards.length, score: Math.max(0, cum) }
+      cum += delta
+      return { t: card.presentedMs + card.windowMs, progress: (i + 1) / config.cards.length, score: Math.max(0, cum), delta }
     })
     return { gameId: 'shift', engineVersion: 1, score, timeline } satisfies SanitizedGhost
   },

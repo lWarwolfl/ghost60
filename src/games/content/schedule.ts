@@ -14,7 +14,7 @@ export type TScheduleDay = {
 }
 
 export type TSchedule = { season: { slug: string; name: string; days: number }; days: TScheduleDay[] }
-export type TCatalog = { version: number; games: Array<{ id: string; modifiers: string[] }> }
+export type TCatalog = { version: number; games: Array<{ id: string; instruction: string; modifiers: string[] }> }
 
 function readJson<T>(name: string): T {
   return JSON.parse(fs.readFileSync(path.join(process.cwd(), 'content', name), 'utf8')) as T

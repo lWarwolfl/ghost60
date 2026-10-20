@@ -228,6 +228,7 @@ function ResultPanel({
       )}
       <GhostAvatar
         skin={profile?.cosmetics.equipped.ghost ?? undefined}
+        decorative={false}
         motion={
           result.outcome === 'win' || result.isPersonalBest || result.isLocalBest
             ? 'win'
@@ -390,44 +391,46 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
     )
   }
   return (
-    <div className="relative flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col">
       <GhostRace session={session} ghost={snapshot.ghost} />
-      {snapshot.game.gameId === 'pulse' ? (
-        <PulseRunner game={snapshot.game} session={session} onReady={() => setRunnerReady(true)} />
-      ) : snapshot.game.gameId === 'snap' ? (
-        <SnapRunner game={snapshot.game} session={session} onReady={() => setRunnerReady(true)} />
-      ) : snapshot.game.gameId === 'orbit' ? (
-        <OrbitRunner
-          game={snapshot.game}
-          session={session}
-          onReady={() => setRunnerReady(true)}
-          rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
-        />
-      ) : snapshot.game.gameId === 'recall' ? (
-        <RecallRunner
-          game={snapshot.game}
-          session={session}
-          onReady={() => setRunnerReady(true)}
-          rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
-        />
-      ) : snapshot.game.gameId === 'shift' ? (
-        <ShiftRunner
-          game={snapshot.game}
-          session={session}
-          onReady={() => setRunnerReady(true)}
-          rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
-        />
-      ) : (
-        <TraceRunner
-          game={snapshot.game}
-          session={session}
-          onReady={() => setRunnerReady(true)}
-          rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
-        />
-      )}
-      {(session.phase === 'countdown' || session.phase === 'running') && (
-        <CountOverlay reduced={session.reduced} />
-      )}
+      <div className="relative flex flex-1 flex-col">
+        {snapshot.game.gameId === 'pulse' ? (
+          <PulseRunner game={snapshot.game} session={session} onReady={() => setRunnerReady(true)} />
+        ) : snapshot.game.gameId === 'snap' ? (
+          <SnapRunner game={snapshot.game} session={session} onReady={() => setRunnerReady(true)} />
+        ) : snapshot.game.gameId === 'orbit' ? (
+          <OrbitRunner
+            game={snapshot.game}
+            session={session}
+            onReady={() => setRunnerReady(true)}
+            rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
+          />
+        ) : snapshot.game.gameId === 'recall' ? (
+          <RecallRunner
+            game={snapshot.game}
+            session={session}
+            onReady={() => setRunnerReady(true)}
+            rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
+          />
+        ) : snapshot.game.gameId === 'shift' ? (
+          <ShiftRunner
+            game={snapshot.game}
+            session={session}
+            onReady={() => setRunnerReady(true)}
+            rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
+          />
+        ) : (
+          <TraceRunner
+            game={snapshot.game}
+            session={session}
+            onReady={() => setRunnerReady(true)}
+            rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
+          />
+        )}
+        {(session.phase === 'countdown' || session.phase === 'running') && (
+          <CountOverlay reduced={session.reduced} />
+        )}
+      </div>
     </div>
   )
 }

@@ -35,6 +35,7 @@ export type SanitizedGhost = {
     t: number;
     progress?: number;
     score?: number;
+    delta?: number;
     p?: NormalizedPoint;
     marker?: number;
   }>;

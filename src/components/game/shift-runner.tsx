@@ -6,7 +6,7 @@ import type { TPublicGame } from '@/features/game/store/game-store'
 import type { GameInputEvent } from '@/games/core/game-module'
 import { shiftEngine, type TShiftConfig } from '@/games/shift/engine'
 import { arrowFor, currentShiftCard, shiftRuleFor } from '@/games/shift/table'
-import { gameplayLoop, committedGhost } from '@/lib/game/gameplay-motion'
+import { gameplayLoop, committedGhost, signedPoints } from '@/lib/game/gameplay-motion'
 import { drawSkinAvatar } from '@/lib/game/skin-renderer'
 import { audio } from '@/lib/game/audio'
 import { PromptFlash } from '@/components/game/prompt-flash'
@@ -91,9 +91,9 @@ export function ShiftRunner({
       const seen = committedGhost(session.ghost?.timeline ?? [], session.eventsRef.current.map(e => e.t), elapsed)
       if (session.ghost) {
         const done = seen.at(-1)
-        const delta = done ? (done.score ?? 0) - (seen.at(-2)?.score ?? 0) : 0
+        const delta = done ? (done.delta ?? (done.score ?? 0) - (seen.at(-2)?.score ?? 0)) : 0
         session.ghostActionRef.current = done
-          ? `CARD ${seen.length}/${cards.length} · ${delta > 0 ? 'HIT' : 'MISS'}`
+          ? `CARD ${seen.length}/${cards.length} · ${signedPoints(delta)}`
           : `CARD 1/${cards.length}`
       }
       if (rivalRef.current) rivalRef.current.textContent = seen.length ? `GHOST ${seen.length}/${cards.length}` : ''
@@ -224,7 +224,7 @@ export function ShiftRunner({
         </div>
       </div>
 
-      <div className="flex gap-3 pb-1">
+      <div className="mt-3 flex gap-3 pb-3">
         <button
           type="button"
           aria-label="Tap left"

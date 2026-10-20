@@ -88,6 +88,19 @@ describe('snap', () => {
     expect(JSON.stringify(g)).not.toContain('"value"')
     expect(g.timeline).toHaveLength(4)
   })
+  it('keeps lost points in the sanitized replay deltas', () => {
+    const g = snapEngine.sanitizeGhost({
+      seed: 's',
+      config,
+      events: [
+        { t: 1200, type: 'choice', value: 0 },
+        { t: 4500, type: 'choice', value: 3 }
+      ],
+      score: 720
+    })
+    expect(g.timeline[0]).toMatchObject({ delta: 970 })
+    expect(g.timeline[1]).toMatchObject({ score: 720, delta: -250 })
+  })
 })
 
 describe('orbit', () => {
@@ -182,6 +195,19 @@ describe('shift', () => {
     })
     expect(r.score).toBe(4760)
     expect(r.metrics).toMatchObject({ correct: 6, streakBonus: 50 })
+  })
+  it('keeps lost points in the sanitized replay deltas', () => {
+    const g = shiftEngine.sanitizeGhost({
+      seed: 's',
+      config,
+      events: [
+        { t: 1100, type: 'choice', value: 0 },
+        { t: 3100, type: 'choice', value: 0 }
+      ],
+      score: 585
+    })
+    expect(g.timeline[0]).toMatchObject({ delta: 785 })
+    expect(g.timeline[1]).toMatchObject({ score: 585, delta: -200 })
   })
 })
 

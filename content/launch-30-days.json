@@ -40,7 +40,7 @@
       "engine": "orbit",
       "modifier": "classic",
       "title": "CLEAN ORBIT",
-      "instruction": "Lock inside every arc.",
+      "instruction": "Wait for cyan, then lock inside every arc. Early taps cost points.",
       "shareSubtitle": "Don’t chase it. Meet it.",
       "seedKey": "S0D03-ORBIT",
       "difficulty": 1,
@@ -90,7 +90,7 @@
       "difficulty": 1,
       "config": {
         "corridor": 0.13,
-        "gates": 9,
+        "gates": 18,
         "path": "wave"
       }
     },
@@ -150,7 +150,7 @@
       "engine": "orbit",
       "modifier": "speed-ramp",
       "title": "SPIN UP",
-      "instruction": "Each orbit is a little faster.",
+      "instruction": "Wait for cyan. Each orbit is a little faster. Early taps cost points.",
       "shareSubtitle": "Lock before it runs away.",
       "seedKey": "S0D10-ORBIT",
       "difficulty": 2,
@@ -185,7 +185,7 @@
       "difficulty": 2,
       "config": {
         "corridor": 0.105,
-        "gates": 10,
+        "gates": 20,
         "path": "sine"
       }
     },
@@ -224,7 +224,7 @@
       "engine": "orbit",
       "modifier": "moving-arcs",
       "title": "MOVING WINDOW",
-      "instruction": "The target moves with you.",
+      "instruction": "Wait for cyan. The target moves with you. Early taps cost points.",
       "shareSubtitle": "Meet the moving opening.",
       "seedKey": "S0D15-ORBIT",
       "difficulty": 3,
@@ -274,7 +274,7 @@
       "difficulty": 3,
       "config": {
         "corridor": 0.085,
-        "gates": 11,
+        "gates": 22,
         "path": "wave"
       }
     },
@@ -331,7 +331,7 @@
       "engine": "orbit",
       "modifier": "dual-direction",
       "title": "BACKSPIN",
-      "instruction": "The orbit can reverse.",
+      "instruction": "Wait for cyan. The orbit can reverse. Early taps cost points.",
       "shareSubtitle": "Reset your timing instantly.",
       "seedKey": "S0D22-ORBIT",
       "difficulty": 4,
@@ -366,7 +366,7 @@
       "difficulty": 4,
       "config": {
         "corridor": 0.09,
-        "gates": 12,
+        "gates": 24,
         "path": "knots"
       }
     },
@@ -405,7 +405,7 @@
       "engine": "orbit",
       "modifier": "radius-shift",
       "title": "GRAVITY DROP",
-      "instruction": "The ring changes radius.",
+      "instruction": "Wait for cyan. The ring changes radius. Early taps cost points.",
       "shareSubtitle": "Timing survives geometry.",
       "seedKey": "S0D27-ORBIT",
       "difficulty": 4,
@@ -465,7 +465,7 @@
       "difficulty": 4,
       "config": {
         "corridor": 0.09,
-        "gates": 12,
+        "gates": 24,
         "path": "wave",
         "movingGates": true
       }

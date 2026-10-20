@@ -93,11 +93,13 @@ export const pulseEngine: GameModule<TPulseConfig> = {
           best = j
         }
       }
+      let delta = 0
       if (best !== -1) {
         used[best] = true
-        cum += Math.round(1000 * Math.max(0, 1 - bestDt / pulse.toleranceMs) ** 2)
+        delta = Math.round(1000 * Math.max(0, 1 - bestDt / pulse.toleranceMs) ** 2)
+        cum += delta
       }
-      return { t: pulse.targetMs, progress: (i + 1) / pulses.length, score: cum }
+      return { t: pulse.targetMs, progress: (i + 1) / pulses.length, score: cum, delta }
     })
     return { gameId: 'pulse', engineVersion: 1, score, timeline } satisfies SanitizedGhost
   },

@@ -18,7 +18,7 @@ import {
 } from '@/games/orbit/table'
 import { drawSkinAvatar } from '@/lib/game/skin-renderer'
 import { audio } from '@/lib/game/audio'
-import { gameplayLoop, drawFeedback, committedGhost } from '@/lib/game/gameplay-motion'
+import { gameplayLoop, drawFeedback, committedGhost, signedPoints } from '@/lib/game/gameplay-motion'
 import { drawGhostGlyph } from '@/lib/game/ghost-renderer'
 
 function fitCanvas(canvas: HTMLCanvasElement) {
@@ -138,8 +138,11 @@ export function OrbitRunner({
       const assigned = assignTaps(targets, taps)
       const history = committedGhost(session.ghost?.timeline ?? [], assigned.map(i => i < 0 ? null : taps[i].t), elapsed)
       if (session.ghost) {
-        session.ghostActionRef.current =
-          history.length < targets.length ? `TARGET ${history.length + 1}/${targets.length}` : 'FINISH'
+        const done = history.at(-1)
+        const delta = done ? (done.delta ?? (done.score ?? 0) - (history.at(-2)?.score ?? 0)) : 0
+        session.ghostActionRef.current = done
+          ? `TARGET ${history.length}/${targets.length} · ${signedPoints(delta)}`
+          : `TARGET 1/${targets.length}`
       }
       ctx2d.save()
       ctx2d.globalAlpha = 0.45
@@ -200,7 +203,7 @@ export function OrbitRunner({
           ctx2d.arc(cx, cy, r, (target.angleDeg - target.edgeTolDeg) * RAD, (target.angleDeg + target.edgeTolDeg) * RAD)
           ctx2d.stroke()
         }
-        drawFeedback(ctx2d, { x: cx, y: cy + r * 1.25, radius: lw * 4, age, duration: 260, reduced: session.reduced, kind, label: v.premature ? 'EARLY' : v.missed ? 'LATE' : kind === 'miss' ? 'MISS' : `+${v.band}` })
+        drawFeedback(ctx2d, { x: cx, y: cy + r * 1.25, radius: lw * 4, age, duration: 420, reduced: session.reduced, kind, label: v.premature ? 'EARLY -100' : v.missed ? 'LATE' : kind === 'miss' ? 'MISS' : `+${v.band}` })
       }
 
       if (timeRef.current) {
@@ -288,19 +291,19 @@ export function OrbitRunner({
       </div>
       <div className="game-subhud">
         <span className="text-[10px] tracking-[0.16em] text-spectral-violet uppercase">
-          {rivalScore !== null ? `Rival ${rivalScore}` : 'Tap inside the bright arc'}
+          {rivalScore !== null ? `Rival ${rivalScore}` : 'Violet = not live · wait for cyan'}
         </span>
         <span className="text-[10px] tracking-[0.16em] text-ghost-muted uppercase">Space taps where the marker is</span>
       </div>
       <canvas
         ref={canvasRef}
         role="application"
-        aria-label="Orbit field. Tap the bright arc when the marker crosses it, or press Space at the marker."
+        aria-label="Orbit field. Violet arcs are not live. Wait for cyan, then tap inside the arc. Early taps cost points."
         style={{ opacity: session.phase === 'finishing' ? 0.6 : 1, transition: 'opacity 120ms linear' }}
         className="game-arena min-h-75 w-full flex-1 touch-none"
         onPointerDown={(e) => tap(e.clientX, e.clientY)}
       />
-      <p className="game-hint">Tap the bright arc when the marker crosses · Space taps at the marker</p>
+      <p className="game-hint">Wait for cyan · early taps cost points · Space taps at the marker</p>
     </div>
   )
 }

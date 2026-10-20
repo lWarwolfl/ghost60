@@ -6,7 +6,7 @@ import type { TPublicGame } from '@/features/game/store/game-store'
 import { drawSkinAvatar } from '@/lib/game/skin-renderer'
 import { drawGhostGlyph } from '@/lib/game/ghost-renderer'
 import { audio } from '@/lib/game/audio'
-import { gameplayLoop, drawFeedback, committedGhost } from '@/lib/game/gameplay-motion'
+import { gameplayLoop, drawFeedback, committedGhost, signedPoints } from '@/lib/game/gameplay-motion'
 import { PromptFlash } from '@/components/game/prompt-flash'
 import { createRng, hashSeed } from '@/games/core/rng'
 import { snapEngine, type TSnapConfig } from '@/games/snap/engine'
@@ -218,9 +218,9 @@ export function SnapRunner({ game, session, onReady }: { game: TPublicGame; sess
       const seen = committedGhost(session.ghost?.timeline ?? [], session.eventsRef.current.map(e => e.t), elapsed)
       if (session.ghost) {
         const done = seen.at(-1)
-        const delta = done ? (done.score ?? 0) - (seen.at(-2)?.score ?? 0) : 0
+        const delta = done ? (done.delta ?? (done.score ?? 0) - (seen.at(-2)?.score ?? 0)) : 0
         session.ghostActionRef.current = done
-          ? `ROUND ${seen.length}/${config.rounds.length} · ${delta > 0 ? 'HIT' : 'MISS'}`
+          ? `ROUND ${seen.length}/${config.rounds.length} · ${signedPoints(delta)}`
           : `ROUND 1/${config.rounds.length}`
       }
       const progress = seen.at(-1)?.progress
@@ -250,7 +250,7 @@ export function SnapRunner({ game, session, onReady }: { game: TPublicGame; sess
               ctx2d.arc(correctCell.cx, correctCell.cy, correctCell.r * 0.86, 0, Math.PI * 2)
               ctx2d.stroke()
               ctx2d.restore()
-              drawFeedback(ctx2d, { x: correctCell.cx, y: correctCell.cy, radius: correctCell.r, age, duration: 240, reduced: session.reduced, kind: 'miss', label: 'TOO LATE' })
+              drawFeedback(ctx2d, { x: correctCell.cx, y: correctCell.cy, radius: correctCell.r, age, duration: 360, reduced: session.reduced, kind: 'miss', label: 'TOO LATE' })
             }
           } else {
             const selected = layout.cells[verdict.index]
@@ -260,7 +260,7 @@ export function SnapRunner({ game, session, onReady }: { game: TPublicGame; sess
               ctx2d.globalAlpha = session.reduced ? 1 : 1 - age / 260
               drawShape(ctx2d, selected.shape, selected.cx, selected.cy, selected.r * scale, verdict.ok ? '#c7ff5e' : '#f5f7ff', verdict.ok ? '#c7ff5e' : '#ff668f', 3)
               ctx2d.restore()
-              drawFeedback(ctx2d, { x: selected.cx, y: selected.cy, radius: selected.r, age, duration: 240, reduced: session.reduced, kind: verdict.ok ? 'good' : 'miss', label: verdict.ok ? 'HIT' : 'MISS' })
+              drawFeedback(ctx2d, { x: selected.cx, y: selected.cy, radius: selected.r, age, duration: 360, reduced: session.reduced, kind: verdict.ok ? 'good' : 'miss', label: verdict.ok ? 'HIT' : 'MISS' })
             }
           }
         }

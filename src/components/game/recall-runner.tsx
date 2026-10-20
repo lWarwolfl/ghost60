@@ -16,7 +16,7 @@ import {
 import { drawSkinAvatar } from '@/lib/game/skin-renderer'
 import { drawGhostGlyph } from '@/lib/game/ghost-renderer'
 import { audio } from '@/lib/game/audio'
-import { gameplayLoop, drawFeedback, recallFeedback, committedGhost } from '@/lib/game/gameplay-motion'
+import { gameplayLoop, drawFeedback, recallFeedback, committedGhost, signedPoints } from '@/lib/game/gameplay-motion'
 import { PromptFlash } from '@/components/game/prompt-flash'
 
 function fitCanvas(canvas: HTMLCanvasElement) {
@@ -56,10 +56,10 @@ export function RecallRunner({
   const [prompt, setPrompt] = useState<{ key: string; label: string; tone: 'violet' | 'lime' } | null>(null)
   const verdictRef = useRef<ReturnType<typeof recallFeedback>>(null)
   const resolutionRef = useRef({ count: -1, resolved: [] as TSeqResolution[] })
+  const focusRef = useRef(0)
+  const finishRequested = useRef(false)
   const [score, setScore] = useState(0)
-  const [focus, setFocus] = useState(0)
   const config = useMemo(() => recallEngine.validateConfig(game.config) as TRecallConfig, [game.config])
-  const schedule = useMemo(() => showSchedule(config), [config])
   const durationMs = game.durationMs
   const grid = config.grid
 
@@ -86,13 +86,20 @@ export function RecallRunner({
         avatar.clearRect(0, 0, 32, 32)
         drawSkinAvatar(avatar, { skin: session.skin, x: 16, y: 16, size: 25, elapsedMs: elapsed, reduced: session.reduced })
       }
-      const taps = session.eventsRef.current as TChoice[]
+      const taps = session.eventsRef.current.filter((e) => e.type === 'choice') as TChoice[]
       if (resolutionRef.current.count !== taps.length) resolutionRef.current = { count: taps.length, resolved: resolveSequences(config, taps) }
       const resolved = resolutionRef.current.resolved
+      const schedule = showSchedule(config, taps)
       const { w, h } = dims
       ctx2d.clearRect(0, 0, w, h)
       const current = resolved.findIndex((r) => r.status === 'open')
       const finished = resolved.every((r) => r.status !== 'open')
+
+      if (finished && !finishRequested.current) {
+        finishRequested.current = true
+        session.finish()
+        return false
+      }
 
       for (let i = 0; i < layout.cells.length; i += 1) {
         const c = layout.cells[i]
@@ -131,9 +138,9 @@ export function RecallRunner({
         ctx2d.strokeStyle = stroke
         ctx2d.stroke()
         if (v?.status === 'failed' && v.cell === i) {
-          drawFeedback(ctx2d, { x: c.x + c.size / 2, y: c.y + c.size / 2, radius: c.size * 0.4, age, duration: 180, reduced: session.reduced, kind: 'miss', label: 'MISS' })
+          drawFeedback(ctx2d, { x: c.x + c.size / 2, y: c.y + c.size / 2, radius: c.size * 0.4, age, duration: 300, reduced: session.reduced, kind: 'miss', label: 'MISS' })
         }
-        if (i === focus) {
+        if (i === focusRef.current) {
           ctx2d.lineWidth = Math.max(2, layout.size * 0.045)
           ctx2d.strokeStyle = '#62f7e6'
           ctx2d.beginPath()
@@ -148,9 +155,9 @@ export function RecallRunner({
       const seen = committedGhost(session.ghost?.timeline ?? [], commitments, elapsed)
       if (session.ghost) {
         const done = seen.at(-1)
-        const delta = done ? (done.score ?? 0) - (seen.at(-2)?.score ?? 0) : 0
+        const delta = done ? (done.delta ?? (done.score ?? 0) - (seen.at(-2)?.score ?? 0)) : 0
         session.ghostActionRef.current = done
-          ? `SEQ ${seen.length}/${config.sequences.length} · ${delta > 0 ? 'HIT' : 'MISS'}`
+          ? `SEQ ${seen.length}/${config.sequences.length} · ${signedPoints(delta)}`
           : `SEQ 1/${config.sequences.length}`
       }
       ctx2d.save()
@@ -193,7 +200,7 @@ export function RecallRunner({
       ro.disconnect()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- countdown ticks must not re-init the canvas
-  }, [config, durationMs, grid, schedule, focus, session.skin, session.reduced])
+  }, [config, durationMs, grid, session.skin, session.reduced])
 
   const choose = (cell: number) => {
     if (session.phase !== 'running') return
@@ -201,6 +208,7 @@ export function RecallRunner({
     const taps = session.eventsRef.current.filter((e) => e.type === 'choice') as TChoice[]
     const resolved = resolveSequences(config, taps)
     const current = resolved.findIndex(r => r.status === 'open')
+    const schedule = showSchedule(config, taps)
     if (current === -1 || session.getElapsed() < schedule[current].showEnd) return
     audio.unlock()
     if (session.logEvent({ type: 'choice', value: cell }) < 0) return
@@ -219,27 +227,27 @@ export function RecallRunner({
       const n = Number.parseInt(e.key, 10)
       if (n >= 1 && n <= 9 && n - 1 < grid * grid) {
         e.preventDefault()
-        setFocus(n - 1)
+        focusRef.current = n - 1
         choose(n - 1)
         return
       }
-      const row = Math.floor(focus / grid)
-      const col = focus % grid
+      const row = Math.floor(focusRef.current / grid)
+      const col = focusRef.current % grid
       if (e.key === 'ArrowUp') {
         e.preventDefault()
-        setFocus(Math.max(0, (row - 1) * grid + col))
+        focusRef.current = Math.max(0, (row - 1) * grid + col)
       } else if (e.key === 'ArrowDown') {
         e.preventDefault()
-        setFocus(Math.min(grid * grid - 1, (row + 1) * grid + col))
+        focusRef.current = Math.min(grid * grid - 1, (row + 1) * grid + col)
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault()
-        setFocus(row * grid + Math.max(0, col - 1))
+        focusRef.current = row * grid + Math.max(0, col - 1)
       } else if (e.key === 'ArrowRight') {
         e.preventDefault()
-        setFocus(row * grid + Math.min(grid - 1, col + 1))
+        focusRef.current = row * grid + Math.min(grid - 1, col + 1)
       } else if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault()
-        choose(focus)
+        choose(focusRef.current)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -276,7 +284,7 @@ export function RecallRunner({
           const layout = recallLayout(canvas.width, canvas.height, grid)
           const cell = cellAt(layout, (e.clientX - rect.left) * (canvas.width / rect.width), (e.clientY - rect.top) * (canvas.height / rect.height))
           if (cell !== -1) {
-            setFocus(cell)
+            focusRef.current = cell
             choose(cell)
           }
         }}

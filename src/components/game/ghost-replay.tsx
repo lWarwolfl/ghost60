@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { GhostAvatar } from '@/components/brand/ghost-avatar'
 import type { SanitizedGhost } from '@/games/core/game-module'
 import type { GameInputEvent } from '@/games/core/game-module'
-import { ghostAt } from '@/lib/game/gameplay-motion'
+import { ghostAt, ghostDeltaAt, signedPoints } from '@/lib/game/gameplay-motion'
 import type { TPublicGame } from '@/features/game/store/game-store'
 
 type TProps = {
@@ -149,6 +149,7 @@ export function GhostReplay({ game, events, ghost, score }: TProps) {
   }, [elapsed, events, game.durationMs, ghost, score])
 
   const ghostNow = ghostAt(ghost.timeline, elapsed, score)
+  const recent = ghostDeltaAt(ghost.timeline, elapsed)
   let point: { x: number; y: number } | null = null
   for (const event of events) {
     if (event.t <= elapsed && 'p' in event && event.p) point = event.p
@@ -159,7 +160,12 @@ export function GhostReplay({ game, events, ghost, score }: TProps) {
     <div className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-spectral-violet text-[10px] tracking-[0.18em] uppercase">Your ghost</p>
-        <p className="tnum text-sm">
+        <p className="tnum flex items-baseline gap-2 text-sm">
+          {recent && elapsed - recent.at < 900 ? (
+            <span className={recent.delta < 0 ? 'text-rival-coral' : 'text-signal-lime'}>
+              {signedPoints(recent.delta)}
+            </span>
+          ) : null}
           <span className="text-spectral-violet">{ghostNow.score}</span>
           <span className="text-ghost-muted"> / {score}</span>
         </p>
@@ -231,7 +237,7 @@ export function GhostReplay({ game, events, ghost, score }: TProps) {
       />
       <p className="text-ghost-muted text-xs">
         Every tap, choice, and pointer move is replayed from the stored run — the same order it
-        happened.
+        happened. Green = points taken · Coral = points lost.
       </p>
     </div>
   )

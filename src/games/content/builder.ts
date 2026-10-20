@@ -165,11 +165,11 @@ function buildShift(day: TScheduleDay) {
 }
 
 function buildTrace(day: TScheduleDay) {
-  const count = Math.min(12, Math.max(2, Math.round(num(day.config['gates'], 5))))
+  const count = Math.min(28, Math.max(2, Math.round(num(day.config['gates'], 5))))
   const half = Math.min(2000, Math.max(100, Math.round(num(day.config['corridor'], 0.1) * 10000)))
   const path = String(day.config['path'] ?? 'wave')
-  const amp = path === 'sine' ? 1600 : path === 'knots' ? 1800 : 1200
-  const waves = path === 'knots' ? 2 : 1
+  const amp = path === 'sine' ? 2400 : 2600
+  const waves = path === 'knots' ? 3 : Math.max(1, Math.round(count / 9))
   const gates = Array.from({ length: count }, (_, i) => {
     const ramp = count > 1 ? Math.pow(i / (count - 1), 1.25) : 0
     const x = Math.round(800 + ((9200 - 800) * i) / Math.max(1, count - 1))

@@ -56,6 +56,7 @@ export function TraceRunner({
   const precisionRef = useRef<HTMLMeterElement>(null)
   const feedbackRef = useRef({ count: -1, data: traceFeedback({ gates: [], corridorHalf: 1, completionBonus: 0 }, []) })
   const drawingRef = useRef(false)
+  const finishRequested = useRef(false)
   const lastRef = useRef<NormalizedPoint | null>(null)
   const passedAtDown = useRef(0)
   const cursorRef = useRef<NormalizedPoint>({ x: 5000, y: 5000 })
@@ -122,11 +123,11 @@ export function TraceRunner({
         ctx2d.lineWidth = lw
         ctx2d.stroke()
         const age = elapsed - feedback.gateTimes[i]
-        if (i < passed && age >= 0 && age < 120) {
+        if (i < passed && age >= 0 && age < 220) {
           ctx2d.beginPath()
-          ctx2d.arc(s.x, s.y, g.r * view.scale * (session.reduced ? 1 : 1 - age / 240), 0, Math.PI * 2)
+          ctx2d.arc(s.x, s.y, g.r * view.scale * (session.reduced ? 1 : 1 - age / 440), 0, Math.PI * 2)
           ctx2d.stroke()
-          drawFeedback(ctx2d, { x: s.x, y: s.y, radius: g.r * view.scale, age, duration: 120, reduced: session.reduced, kind: 'perfect', label: '' })
+          drawFeedback(ctx2d, { x: s.x, y: s.y, radius: g.r * view.scale, age, duration: 220, reduced: session.reduced, kind: 'perfect', label: '' })
         }
       })
 
@@ -242,6 +243,11 @@ export function TraceRunner({
     session.logEvent({ type: 'pointer_up', p })
     scoreNow()
     const passed = passedGates(gates, samplesOf(session.eventsRef.current))
+    if (passed >= gates.length && !finishRequested.current) {
+      finishRequested.current = true
+      session.finish()
+      return
+    }
     if (passed > passedAtDown.current) audio.correct()
     else audio.miss()
   }

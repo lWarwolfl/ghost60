@@ -135,18 +135,22 @@ export const orbitEngine: GameModule<TOrbitConfig> = {
           best = j
         }
       }
+      let delta = 0
       if (best !== -1) {
         used[best] = true
         const tap = taps[best]
-        if (tap.t >= target.openMs && tap.t <= target.closeMs) {
+        if (tap.t < target.openMs) {
+          delta = -PREMATURE_PENALTY
+        } else if (tap.t <= target.closeMs) {
           const angle = tap.value === undefined ? target.angleDeg : tap.value
           const d = angDist(angle, target.angleDeg)
-          if (d <= target.perfectTolDeg) cum += 1000
-          else if (d <= target.goodTolDeg) cum += 650
-          else if (d <= target.edgeTolDeg) cum += 350
+          if (d <= target.perfectTolDeg) delta = 1000
+          else if (d <= target.goodTolDeg) delta = 650
+          else if (d <= target.edgeTolDeg) delta = 350
         }
       }
-      return { t: target.closeMs, progress: (i + 1) / config.targets.length, score: Math.max(0, cum) }
+      cum += delta
+      return { t: target.closeMs, progress: (i + 1) / config.targets.length, score: Math.max(0, cum), delta }
     })
     return { gameId: 'orbit', engineVersion: 1, score, timeline } satisfies SanitizedGhost
   },

@@ -77,15 +77,17 @@ export const snapEngine: GameModule<TSnapConfig> = {
     let cum = 0
     const timeline = config.rounds.map((round, i) => {
       const choice = choices[i]
+      let delta = 0
       if (choice && choice.value !== undefined) {
         const inWindow = choice.t >= round.presentedMs && choice.t <= round.presentedMs + round.windowMs
         if (inWindow && choice.value === round.correct) {
-          cum += 700 + Math.round(300 * Math.max(0, 1 - (choice.t - round.presentedMs) / round.windowMs))
+          delta = 700 + Math.round(300 * Math.max(0, 1 - (choice.t - round.presentedMs) / round.windowMs))
         } else {
-          cum -= 250
+          delta = -250
         }
       }
-      return { t: round.presentedMs + round.windowMs, progress: (i + 1) / config.rounds.length, score: Math.max(0, cum) }
+      cum += delta
+      return { t: round.presentedMs + round.windowMs, progress: (i + 1) / config.rounds.length, score: Math.max(0, cum), delta }
     })
     return { gameId: 'snap', engineVersion: 1, score, timeline } satisfies SanitizedGhost
   },

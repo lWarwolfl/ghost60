@@ -37,7 +37,27 @@ export function countdownState(elapsed: number) {
 export function feedbackState(age: number, duration: number, reduced: boolean) {
   const visible = age >= 0 && age < duration
   const p = Math.min(1, Math.max(0, age / duration))
-  return { visible, opacity: reduced ? 1 : 1 - p, rise: reduced ? 0 : p * 10, sparks: visible && !reduced ? 8 : 0 }
+  return { visible, opacity: reduced ? 1 : 1 - p * p, rise: reduced ? 0 : p * 10, sparks: visible && !reduced ? 8 : 0 }
+}
+
+export function signedPoints(delta: number) {
+  return delta > 0 ? `+${delta}` : String(delta)
+}
+
+export function ghostDeltaAt(
+  timeline: ReadonlyArray<{ t: number; score?: number; delta?: number }>,
+  elapsed: number
+) {
+  let previous = 0
+  let recent: { delta: number; at: number } | null = null
+  for (const sample of timeline) {
+    if (!Number.isFinite(sample.t) || sample.t > elapsed) break
+    const score = Math.max(0, Math.round(sample.score ?? previous))
+    const delta = sample.delta ?? score - previous
+    if (delta !== 0) recent = { delta, at: sample.t }
+    previous = score
+  }
+  return recent
 }
 
 export function committedGhost<T extends { t: number }>(timeline: readonly T[], commitments: readonly (number | null)[], elapsed: number) {
@@ -163,7 +183,7 @@ export function drawFeedback(ctx: CanvasRenderingContext2D, options: { x: number
       ctx.fillRect(x + Math.cos(a) * r, y + Math.sin(a) * r, 2, 2)
     }
   }
-  ctx.font = '600 14px sans-serif'
+  ctx.font = '700 18px sans-serif'
   ctx.textAlign = 'center'
   ctx.fillText(label, x, y + radius * 0.6 - state.rise)
   ctx.restore()

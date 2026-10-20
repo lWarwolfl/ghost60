@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { feedbackState, committedGhost, ghostAt, pulseAssignments, recallFeedback, traceFeedback, inputTime, countdownState } from '@/lib/game/gameplay-motion'
+import { feedbackState, committedGhost, ghostAt, ghostDeltaAt, signedPoints, pulseAssignments, recallFeedback, traceFeedback, inputTime, countdownState } from '@/lib/game/gameplay-motion'
 
 describe('gameplay motion', () => {
   it('keeps input on the monotonic runtime boundary, independent of decoration', () => {
@@ -24,6 +24,23 @@ describe('gameplay motion', () => {
     expect(feedbackState(-1, 120, false).visible).toBe(false)
     expect(feedbackState(120, 120, false).visible).toBe(false)
     expect(feedbackState(60, 120, false).sparks).toBeLessThanOrEqual(8)
+    expect(feedbackState(210, 420, false).opacity).toBeGreaterThan(0.5)
+  })
+
+  it('formats gained and lost replay points', () => {
+    expect(signedPoints(650)).toBe('+650')
+    expect(signedPoints(-200)).toBe('-200')
+    expect(signedPoints(0)).toBe('0')
+  })
+
+  it('finds negative replay deltas even when cumulative score is floored', () => {
+    const timeline = [
+      { t: 100, score: 300, delta: 300 },
+      { t: 200, score: 0, delta: -500 },
+      { t: 300, score: 0, delta: 0 }
+    ]
+    expect(ghostDeltaAt(timeline, 250)).toEqual({ delta: -500, at: 200 })
+    expect(ghostDeltaAt(timeline, 99)).toBeNull()
   })
 
   it('reveals only committed corresponding ghost history and never future samples', () => {

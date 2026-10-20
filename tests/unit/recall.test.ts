@@ -139,6 +139,19 @@ describe('recall table helpers', () => {
     expect(sched[0].showEnd).toBeLessThanOrEqual(sched[1].showStart)
     expect(sched[1].showEnd).toBeLessThan(50000)
   })
+  it('waits for the previous recall set before showing the next', () => {
+    const sched = showSchedule(config, [
+      { t: 2400, type: 'choice', value: 0 },
+      { t: 2600, type: 'choice', value: 1 }
+    ])
+    expect(sched[0]).toEqual({ showStart: 800, showEnd: 2400 })
+    expect(sched[1].showStart).toBe(3300)
+  })
+  it('keeps unresolved sets off the clock', () => {
+    const sched = showSchedule(config, [])
+    expect(sched[0].showEnd).toBeGreaterThan(sched[0].showStart)
+    expect(sched[1].showStart).toBe(Number.POSITIVE_INFINITY)
+  })
   it('resolves sequences exactly like the scorer', () => {
     const resolved = resolveSequences(config, [
       { t: 100, type: 'choice', value: 0 },

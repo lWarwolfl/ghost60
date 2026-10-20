@@ -96,8 +96,9 @@ export const recallEngine: GameModule<TRecallConfig> = {
         else alive = false
       }
       const done = alive && pos === seq.cells.length
-      if (done) cum += 1000 + Math.round(500 * Math.max(0, 1 - Math.max(1, lastT - firstT) / seq.parMs))
-      return { t: lastT, progress: (i + 1) / config.sequences.length, score: cum, marker: done ? 1 : 0 }
+      const delta = done ? 1000 + Math.round(500 * Math.max(0, 1 - Math.max(1, lastT - firstT) / seq.parMs)) : 0
+      cum += delta
+      return { t: lastT, progress: (i + 1) / config.sequences.length, score: cum, delta, marker: done ? 1 : 0 }
     })
     return { gameId: 'recall', engineVersion: 1, score, timeline } satisfies SanitizedGhost
   },

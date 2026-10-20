@@ -41,6 +41,8 @@ export function useRunSession(game: TPublicGame, token: string, ready = true) {
   const runStartRef = useRef(0)
   const consumeRef = useRef<(() => Promise<boolean>) | null>(null)
   const submittingRef = useRef(false)
+  const finishedRef = useRef(false)
+  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const submit = useSubmitRun()
   const submitRef = useRef(submit.mutateAsync)
   useEffect(() => {
@@ -133,11 +135,22 @@ export function useRunSession(game: TPublicGame, token: string, ready = true) {
     [game, token]
   )
 
+  const finish = useCallback(() => {
+    if (finishedRef.current) return
+    finishedRef.current = true
+    acceptingRef.current = false
+    setPhase('finishing')
+    audio.finish()
+    finishTimerRef.current = setTimeout(
+      () => void doSubmit([...eventsRef.current], visRef.current),
+      120
+    )
+  }, [doSubmit])
+
   useEffect(() => {
     if (!ready) return
     let cancelled = false
     let timer: ReturnType<typeof setTimeout>
-    let finished = false
     let lastCount = 3
     const key = `ghost60:consumed:${token}`
     const request = consumptionRequest(token)
@@ -149,6 +162,7 @@ export function useRunSession(game: TPublicGame, token: string, ready = true) {
       return request()
     }
     const begin = async () => {
+      finishedRef.current = false
       const pending = await loadPending(token).catch(() => undefined)
       if (cancelled) return
       if (pending) {
@@ -171,7 +185,7 @@ export function useRunSession(game: TPublicGame, token: string, ready = true) {
       setPhase('countdown')
       audio.tick()
       const update = () => {
-        if (cancelled || finished) return
+        if (cancelled || finishedRef.current) return
         const now = performance.now()
         const countdown = countdownState(now - countdownStart)
         const clock = runClock(now, runStartRef.current, game.durationMs)
@@ -183,10 +197,7 @@ export function useRunSession(game: TPublicGame, token: string, ready = true) {
         acceptingRef.current = clock.running
         if (clock.consume) void consumeRef.current?.()
         if (clock.finished) {
-          finished = true
-          setPhase('finishing')
-          audio.finish()
-          timer = setTimeout(() => void doSubmit([...eventsRef.current], visRef.current), 120)
+          finish()
           return
         }
         if (clock.running) setPhase('running')
@@ -215,10 +226,11 @@ export function useRunSession(game: TPublicGame, token: string, ready = true) {
       cancelled = true
       acceptingRef.current = false
       clearTimeout(timer)
+      if (finishTimerRef.current) clearTimeout(finishTimerRef.current)
       document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener('pagehide', onVis)
     }
-  }, [doSubmit, game.durationMs, game.gameId, ready, token])
+  }, [doSubmit, finish, game.durationMs, game.gameId, ready, token])
 
   useEffect(() => {
     const onOnline = () => {
@@ -253,8 +265,8 @@ export function useRunSession(game: TPublicGame, token: string, ready = true) {
   }, [doSubmit, token])
 
   return useMemo(
-    () => ({ phase, result, error, eventsRef, scoreRef, ghostActionRef, reportScore, logEvent, getElapsed, retryPending, reduced, skin, ghost, ghostMeta }),
-    [phase, result, error, logEvent, getElapsed, retryPending, reduced, skin, ghost, ghostMeta, reportScore]
+    () => ({ phase, result, error, eventsRef, scoreRef, ghostActionRef, reportScore, logEvent, getElapsed, retryPending, finish, reduced, skin, ghost, ghostMeta }),
+    [phase, result, error, logEvent, getElapsed, retryPending, finish, reduced, skin, ghost, ghostMeta, reportScore]
   )
 }
 

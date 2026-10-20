@@ -8,13 +8,41 @@ export const RECALL_SEQ_GAP_MS = 700
 
 export type TShowSlot = { showStart: number; showEnd: number }
 
-export function showSchedule(config: TRecallConfig): TShowSlot[] {
-  let cursor = RECALL_SHOW_SETTLE_MS
+type TChoice = Extract<GameInputEvent, { type: 'choice' }>
+
+export function showSchedule(config: TRecallConfig, choices?: TChoice[]): TShowSlot[] {
+  if (!choices) {
+    let cursor = RECALL_SHOW_SETTLE_MS
+    return config.sequences.map((seq) => {
+      const showStart = cursor
+      const showEnd = showStart + seq.cells.length * RECALL_CELL_SLOT_MS
+      cursor = showEnd + RECALL_SEQ_GAP_MS
+      return { showStart, showEnd }
+    })
+  }
+
+  let showStart = RECALL_SHOW_SETTLE_MS
+  let choiceCursor = 0
   return config.sequences.map((seq) => {
-    const showStart = cursor
     const showEnd = showStart + seq.cells.length * RECALL_CELL_SLOT_MS
-    cursor = showEnd + RECALL_SEQ_GAP_MS
-    return { showStart, showEnd }
+    const slot = { showStart, showEnd }
+    let pos = 0
+    let alive = true
+    let lastT = showEnd
+
+    while (pos < seq.cells.length && choiceCursor < choices.length && alive) {
+      const choice = choices[choiceCursor]
+      choiceCursor += 1
+      lastT = choice.t
+      if (choice.value === seq.cells[pos]) pos += 1
+      else alive = false
+    }
+
+    const resolved = !alive || pos === seq.cells.length
+    showStart = resolved
+      ? Math.max(showEnd, lastT) + RECALL_SEQ_GAP_MS
+      : Number.POSITIVE_INFINITY
+    return slot
   })
 }
 

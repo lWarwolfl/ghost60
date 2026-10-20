@@ -22,7 +22,7 @@ const TraceConfigSchema = z.object({
       })
     )
     .min(2)
-    .max(12),
+    .max(28),
   corridorHalf: z.number().int().min(100).max(2000),
   completionBonus: z.number().int().min(0).max(2000).default(500)
 })
@@ -99,12 +99,21 @@ export const traceEngine: GameModule<TTraceConfig> = {
       metrics: { gates: config.gates.length, passed: expected, precision }
     } satisfies ScoreResult
   },
-  sanitizeGhost({ events, score }) {
+  sanitizeGhost({ config, events, score }) {
     const samples = events.filter(hasPoint)
     const step = Math.max(1, Math.floor(samples.length / 60))
+    let gate = 0
     const timeline = samples
       .filter((_, i) => i % step === 0)
-      .map((e, i, arr) => ({ t: e.t, progress: (i + 1) / arr.length, p: e.p }))
+      .map((e, i, arr) => {
+        let delta = 0
+        const next = config.gates[gate]
+        if (next && dist(e.p, next) <= next.r) {
+          delta = GATE_POINTS
+          gate += 1
+        }
+        return { t: e.t, progress: (i + 1) / arr.length, p: e.p, delta }
+      })
     return { gameId: 'trace', engineVersion: 1, score, timeline } satisfies SanitizedGhost
   },
   simulate({ config, skill, rng }: { seed: string; config: TTraceConfig; skill: number; rng: SeededRng }) {

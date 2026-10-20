@@ -20,6 +20,11 @@ describe('launch schedule rules', () => {
     const broken = { ...schedule, days: [schedule.days[0], schedule.days[0]] as TScheduleDay[] }
     expect(validateScheduleRules(broken, catalog).join(' ')).toContain('consecutive')
   })
+  it('documents the orbit live/early-tap rule', () => {
+    const orbit = catalog.games.find((game) => game.id === 'orbit')!
+    expect(orbit.instruction.toLowerCase()).toContain('cyan')
+    expect(orbit.instruction.toLowerCase()).toContain('early taps')
+  })
   it('uses catalog modifiers and sane difficulty', () => {
     for (const d of schedule.days) {
       const game = catalog.games.find((g) => g.id === d.engine)!
@@ -82,6 +87,14 @@ describe('day config builder', () => {
         .slice(1)
         .map((target, i) => ((target.angleDeg - targets[i].angleDeg + 540) % 360) - 180)
       expect(new Set(turns.map((turn) => Math.round(turn))).size).toBeGreaterThan(3)
+    }
+  })
+  it('builds longer trace paths', () => {
+    const traceDays = schedule.days.filter((d) => d.engine === 'trace')
+    expect(traceDays.length).toBeGreaterThan(0)
+    for (const day of traceDays) {
+      const config = buildDayConfig(day).config as { gates: unknown[] }
+      expect(config.gates.length).toBeGreaterThanOrEqual(18)
     }
   })
   it('keeps pulse windows constant while the rhythm accelerates', () => {

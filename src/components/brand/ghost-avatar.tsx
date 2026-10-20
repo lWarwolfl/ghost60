@@ -10,6 +10,7 @@ type GhostAvatarProps = {
   motion?: 'idle' | 'race' | 'win' | 'loss' | 'none'
   className?: string
   gradient?: [string, string]
+  decorative?: boolean
 }
 
 const BODY = 'M15 32C15 21 22.8 13 32 13s17 8 17 19v17l-5.5-4-5.7 4-5.8-4-5.8 4-5.7-4-5.5 4V32Z'
@@ -19,12 +20,14 @@ export function GhostAvatar({
   motion = 'idle',
   className,
   gradient,
+  decorative = true,
 }: GhostAvatarProps) {
   const id = useId()
   const preferences = useBrandMotion()
   const recipe = getSkin(skin) ?? getSkin('clean-specter')!
   const colors = gradient ?? recipe.avatar.gradient
   const effect = recipe.avatar.effect
+  const showEffects = decorative
   return (
     <svg
       viewBox="0 0 64 64"
@@ -33,7 +36,7 @@ export function GhostAvatar({
       aria-label={`${recipe.name} ghost avatar`}
       data-vector="avatar"
       data-motion={motion}
-      data-effect={effect}
+      data-effect={showEffects ? effect : 'clean'}
       {...preferences}
       className={cn('brand-vector size-10', className)}
     >
@@ -50,7 +53,7 @@ export function GhostAvatar({
         </pattern>
       </defs>
       <g data-part="avatar">
-        {(motion === 'race' || effect === 'long-exposure') && (
+        {showEffects && (motion === 'race' || effect === 'long-exposure') && (
           <g data-part="trails" aria-hidden="true">
             {[0, 1, 2].map((i) => (
               <path
@@ -64,7 +67,7 @@ export function GhostAvatar({
             ))}
           </g>
         )}
-        {effect === 'chromatic' && (
+        {showEffects && effect === 'chromatic' && (
           <g data-part="chromatic-echoes" aria-hidden="true">
             <path d={BODY} stroke="#62F7E6" strokeWidth="2" data-part="echo-cyan" />
             <path d={BODY} stroke="#FF66DB" strokeWidth="2" data-part="echo-magenta" />
@@ -72,14 +75,14 @@ export function GhostAvatar({
         )}
         <path
           d={BODY}
-          fill={effect === 'chromatic' && !gradient ? '#F5F7FF' : `url(#${id})`}
+          fill={showEffects && effect === 'chromatic' && !gradient ? '#F5F7FF' : `url(#${id})`}
           stroke={recipe.avatar.rim}
           strokeWidth=".8"
           opacity=".92"
           data-part="body"
         />
         <g clipPath={`url(#${id}-clip)`} aria-hidden="true">
-          {effect === 'scanline' && (
+          {showEffects && effect === 'scanline' && (
             <rect
               data-part="scan-bands"
               x="12"
@@ -89,12 +92,12 @@ export function GhostAvatar({
               fill={`url(#${id}-bands)`}
             />
           )}
-          {effect === 'static' && (
+          {showEffects && effect === 'static' && (
             <g data-part="static-cuts" stroke="#070912" strokeWidth="1.5">
               <path d="M16 24h18M28 35h20M15 43h12" />
             </g>
           )}
-          {effect === 'heatwave' && (
+          {showEffects && effect === 'heatwave' && (
             <path
               data-part="heat-ribbon"
               d="M21 50Q30 42 26 33T33 13"
@@ -104,7 +107,7 @@ export function GhostAvatar({
             />
           )}
         </g>
-        {(effect === 'mint' || effect === 'ultraviolet') && (
+        {showEffects && (effect === 'mint' || effect === 'ultraviolet') && (
           <g
             data-part="skin-particles"
             fill={effect === 'mint' ? '#C7FF5E' : '#A98BFF'}

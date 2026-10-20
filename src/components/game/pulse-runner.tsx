@@ -5,7 +5,7 @@ import type { TRunSession } from '@/features/game/hooks/useRunSession.hook'
 import type { TPublicGame } from '@/features/game/store/game-store'
 import { drawSkinAvatar } from '@/lib/game/skin-renderer'
 import { audio } from '@/lib/game/audio'
-import { gameplayLoop, drawFeedback, pulseAssignments, committedGhost } from '@/lib/game/gameplay-motion'
+import { gameplayLoop, drawFeedback, pulseAssignments, committedGhost, signedPoints } from '@/lib/game/gameplay-motion'
 import { drawGhostGlyph } from '@/lib/game/ghost-renderer'
 import { pulseEngine, type TPulseConfig } from '@/games/pulse/engine'
 
@@ -110,8 +110,11 @@ export function PulseRunner({ game, session, onReady }: { game: TPublicGame; ses
       const assignments = pulseAssignments(pulses, session.eventsRef.current)
       const seen = committedGhost(session.ghost?.timeline ?? [], assignments.map(i => i < 0 ? null : session.eventsRef.current[i].t), elapsed)
       if (session.ghost) {
-        session.ghostActionRef.current =
-          seen.length < pulses.length ? `PULSE ${seen.length + 1}/${pulses.length}` : 'FINISH'
+        const done = seen.at(-1)
+        const delta = done ? (done.delta ?? (done.score ?? 0) - (seen.at(-2)?.score ?? 0)) : 0
+        session.ghostActionRef.current = done
+          ? `PULSE ${seen.length}/${pulses.length} · ${signedPoints(delta)}`
+          : `PULSE 1/${pulses.length}`
       }
       const ghostPulse = pulses[seen.length]
       if (ghostPulse) {
@@ -160,7 +163,7 @@ export function PulseRunner({ game, session, onReady }: { game: TPublicGame; ses
           ctx2d.stroke()
           ctx2d.restore()
         }
-        drawFeedback(ctx2d, { x: cx, y: cy, radius: r * 0.6, age, duration: 260, reduced: session.reduced, kind, label: kind === 'miss' ? 'MISS' : `+${impact.delta}` })
+        drawFeedback(ctx2d, { x: cx, y: cy, radius: r * 0.6, age, duration: 420, reduced: session.reduced, kind, label: kind === 'miss' ? 'MISS' : `+${impact.delta}` })
       }
       if (timeRef.current) {
         const left = Math.max(0, durationMs - elapsed)
