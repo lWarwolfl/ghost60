@@ -44,7 +44,7 @@ export function DevClient() {
     <div className="bg-ink-950 text-ghost-text flex min-h-dvh flex-col">
       
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-8 sm:max-w-2xl">
-        <p className="text-spectral-amber text-[10px] tracking-[0.18em] uppercase">Dev mode</p>
+        <p className="text-signal-amber text-[10px] tracking-[0.18em] uppercase">Dev mode</p>
         <h1 className="font-display text-3xl font-800">PLAYTEST EVERY ENGINE</h1>
         <p className="text-ghost-muted text-sm leading-6">
           No daily limit, no charges, no streak changes. Each run still records and syncs so you

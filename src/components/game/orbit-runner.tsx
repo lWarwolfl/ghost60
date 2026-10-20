@@ -28,6 +28,8 @@ function fitCanvas(canvas: HTMLCanvasElement) {
 }
 
 const RAD = Math.PI / 180
+// Stable identity so the canvas effect does not restart when no rival exists.
+const NO_NOTCHES: TRivalNotch[] = []
 
 type TVerdict = { band: number; at: number; angle: number; premature: boolean; missed: boolean }
 
@@ -35,7 +37,7 @@ export function OrbitRunner({
   game,
   session,
   onReady,
-  rivalNotches = [],
+  rivalNotches = NO_NOTCHES,
   rivalScore = null
 }: {
   game: TPublicGame

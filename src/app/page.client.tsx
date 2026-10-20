@@ -41,11 +41,9 @@ export function HomeClient() {
               <Ghost60Mark motion="ambient" className="size-14 shrink-0" />
               <h1
                 id="hero"
-                className="font-display text-3xl font-800 leading-[0.95] tracking-tight min-[360px]:text-4xl sm:text-5xl"
+                className="font-display text-3xl font-800 leading-[0.95] tracking-tight min-[360px]:text-4xl sm:text-[2.5rem]"
               >
-                ONE GAME.
-                <br />
-                FIVE SHOTS.
+                ONE GAME. FIVE SHOTS.
               </h1>
             </div>
             <p className="max-w-md text-base leading-7 text-ghost-muted">

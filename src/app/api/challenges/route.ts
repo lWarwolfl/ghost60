@@ -8,7 +8,6 @@ import { RATE_LIMITS, checkRateLimit, rateLimitedResponse } from '@/lib/game/rat
 import { generateSlug } from '@/lib/game/slug'
 import { utcDayString } from '@/lib/game/daily'
 import { XP } from '@/lib/game/progression'
-import { getPlan, lockedResponse } from '@/lib/game/entitlement'
 
 const CreateSchema = z.object({ runId: z.string().uuid() })
 
@@ -34,7 +33,6 @@ export async function POST(req: Request) {
   if (!run || !run.valid) return NextResponse.json({ error: 'run-not-eligible' }, { status: 409 })
   const game = (await db.select().from(DailyGame).where(eq(DailyGame.id, run.dailyGameId)))[0]
   if (!game || game.gameDate > utcDayString() || game.publishAt > new Date()) return NextResponse.json({ error: 'run-not-eligible' }, { status: 409 })
-  if (game.gameDate < utcDayString() && (await getPlan(user.id)) !== 'ghost_plus') return lockedResponse()
   const expiresAt = new Date(Date.now() + 14 * 86400000)
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {

@@ -33,12 +33,14 @@ function samplesOf(events: GameInputEvent[]): NormalizedPoint[] {
 }
 
 const CURSOR_STEP = 250
+// Stable identity so the canvas effect does not restart when no rival exists.
+const NO_RIVAL_PATH: TRivalPoint[] = []
 
 export function TraceRunner({
   game,
   session,
   onReady,
-  rivalPath = [],
+  rivalPath = NO_RIVAL_PATH,
   rivalScore = null
 }: {
   game: TPublicGame

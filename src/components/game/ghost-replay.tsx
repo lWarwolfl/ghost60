@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { GhostAvatar } from '@/components/brand/ghost-avatar'
 import type { SanitizedGhost } from '@/games/core/game-module'
 import type { GameInputEvent } from '@/games/core/game-module'
 import { ghostAt } from '@/lib/game/gameplay-motion'
@@ -148,6 +149,12 @@ export function GhostReplay({ game, events, ghost, score }: TProps) {
   }, [elapsed, events, game.durationMs, ghost, score])
 
   const ghostNow = ghostAt(ghost.timeline, elapsed, score)
+  let point: { x: number; y: number } | null = null
+  for (const event of events) {
+    if (event.t <= elapsed && 'p' in event && event.p) point = event.p
+  }
+  const ghostX = point ? Math.min(0.94, Math.max(0.06, point.x / 10000)) : 0.2 + ghostNow.progress * 0.6
+  const ghostY = point ? Math.min(0.94, Math.max(0.06, point.y / 10000)) : 0.5 + Math.sin(ghostNow.progress * Math.PI * 4) * 0.16
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3">
@@ -157,11 +164,24 @@ export function GhostReplay({ game, events, ghost, score }: TProps) {
           <span className="text-ghost-muted"> / {score}</span>
         </p>
       </div>
-      <canvas
-        ref={canvasRef}
-        aria-label={`Ghost replay of your ${game.gameId} run. Live ghost score ${ghostNow.score} of ${score}.`}
-        className="game-arena h-64 w-full"
-      />
+      <div className="relative">
+        <canvas
+          ref={canvasRef}
+          aria-label={`Ghost replay of your ${game.gameId} run. Live ghost score ${ghostNow.score} of ${score}.`}
+          className="game-arena h-64 w-full"
+        />
+        <div
+          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
+          style={{ left: `${ghostX * 100}%`, top: `${ghostY * 100}%`, transition: 'left 140ms linear, top 140ms linear' }}
+        >
+          <span className="bg-spectral-violet/20 ring-spectral-violet/50 block rounded-full p-1.5 ring-1 shadow-[0_0_26px_rgba(169,139,255,0.6)]">
+            <GhostAvatar motion="race" gradient={['#c3aaff', '#7d5cff']} className="size-8" />
+          </span>
+        </div>
+        <span className="text-spectral-violet border-spectral-violet/40 bg-ink-950/70 pointer-events-none absolute right-3 top-3 rounded-full border px-2 py-0.5 text-[9px] tracking-[0.18em] uppercase">
+          Ghost
+        </span>
+      </div>
       <div className="flex items-center gap-2">
         <button
           type="button"

@@ -22,6 +22,7 @@ import {
   type TGameSnapshot,
 } from '@/features/game/store/game-store'
 import type { GameInputEvent } from '@/games/core/game-module'
+import { countdownState } from '@/lib/game/gameplay-motion'
 import { getGame } from '@/games/registry'
 
 const PulseRunner = dynamic(
@@ -69,7 +70,25 @@ const TraceRunner = dynamic(
   }
 )
 
-function CountOverlay({ count, reduced }: { count: number; reduced: boolean }) {
+function CountOverlay({ reduced }: { reduced: boolean }) {
+  const [state, setState] = useState({ count: 3, visible: true })
+  const lastRef = useRef(state)
+  useEffect(() => {
+    const start = performance.now()
+    let frame = 0
+    const step = () => {
+      const elapsed = performance.now() - start
+      const next = countdownState(elapsed)
+      if (next.count !== lastRef.current.count || next.visible !== lastRef.current.visible) {
+        lastRef.current = next
+        setState(next)
+      }
+      if (elapsed < 3250) frame = requestAnimationFrame(step)
+    }
+    frame = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frame)
+  }, [])
+  if (!state.visible) return null
   return (
     <div
       className="pointer-events-none absolute inset-0 flex items-center justify-center"
@@ -77,9 +96,9 @@ function CountOverlay({ count, reduced }: { count: number; reduced: boolean }) {
     >
       <span
         className={`font-display font-800 text-ghost-text text-7xl ${reduced ? '' : 'animate-reveal'}`}
-        key={count}
+        key={state.count}
       >
-        {count === 0 ? 'GO' : count}
+        {state.count === 0 ? 'GO' : state.count}
       </span>
     </div>
   )
@@ -390,8 +409,8 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
           rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
         />
       )}
-      {session.countVisible && (session.phase === 'countdown' || session.phase === 'running') && (
-        <CountOverlay count={session.count} reduced={session.reduced} />
+      {(session.phase === 'countdown' || session.phase === 'running') && (
+        <CountOverlay reduced={session.reduced} />
       )}
     </div>
   )

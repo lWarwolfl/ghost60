@@ -248,11 +248,9 @@ describe('challenge and ranked lifecycle', () => {
 })
 
 describe('archive play', () => {
-  it('requires premium to create archive challenges, not to receive them', async () => {
+  it('allows archive challenges without premium', async () => {
     state.rows.get(DailyGame)![0].gameDate = '2026-01-01'
     state.rows.get(Run)![0].userId = 'recipient'
-    expect((await shareChallenge(request({ runId: sourceId }))).status).toBe(403)
-    state.paid = true
     expect((await shareChallenge(request({ runId: sourceId }))).status).toBe(200)
   })
 

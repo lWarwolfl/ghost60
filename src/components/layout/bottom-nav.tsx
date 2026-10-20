@@ -7,11 +7,12 @@ import { Archive, FlaskConical, House, MoreHorizontal, Play, Settings, Shield, S
 
 const TABS = [
   { href: '/', label: 'Today', icon: House },
-  { href: '/archive', label: 'Archive', icon: Archive },
-  { href: '/play', label: 'Play', icon: Play, primary: true },
   { href: '/leagues', label: 'Leagues', icon: Trophy },
+  { href: '/play', label: 'Play', icon: Play, primary: true },
   { href: '/profile', label: 'Profile', icon: User }
 ]
+
+const MORE_ROUTES = ['/archive', '/ghost-plus', '/settings', '/privacy', '/terms']
 
 export function BottomNav() {
   const pathname = usePathname()
@@ -23,6 +24,7 @@ export function BottomNav() {
   )
     return null
   const active = (href: string) => (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`))
+  const moreActive = MORE_ROUTES.some((href) => pathname === href || pathname.startsWith(`${href}/`))
   const dev = process.env.NODE_ENV !== 'production'
   return (
     <>
@@ -59,35 +61,39 @@ export function BottomNav() {
             type="button"
             onClick={() => setMore((value) => !value)}
             aria-label="More"
+            aria-haspopup="menu"
             aria-expanded={more}
-            data-active={more ? 'true' : 'false'}
+            data-active={more || moreActive ? 'true' : 'false'}
             className="bottom-nav-tab"
           >
             <MoreHorizontal className="size-5" strokeWidth={1.8} aria-hidden="true" />
             <span>More</span>
           </button>
-        </div>
-        {more && (
-          <div className="bottom-nav-sheet" role="menu" aria-label="More sections">
-            <Link href="/ghost-plus" role="menuitem" onClick={() => setMore(false)}>
-              <Sparkles className="size-4" aria-hidden="true" /> Ghost+
-            </Link>
-            <Link href="/settings" role="menuitem" onClick={() => setMore(false)}>
-              <Settings className="size-4" aria-hidden="true" /> Settings
-            </Link>
-            {dev && (
-              <Link href="/dev" role="menuitem" onClick={() => setMore(false)}>
-                <FlaskConical className="size-4" aria-hidden="true" /> Dev playtest
+          {more && (
+            <div className="bottom-nav-sheet" role="menu" aria-label="More sections">
+              <Link href="/archive" role="menuitem" onClick={() => setMore(false)}>
+                <Archive className="size-4" aria-hidden="true" /> Archive
               </Link>
-            )}
-            <Link href="/privacy" role="menuitem" onClick={() => setMore(false)}>
-              <Shield className="size-4" aria-hidden="true" /> Privacy
-            </Link>
-            <Link href="/terms" role="menuitem" onClick={() => setMore(false)}>
-              <Shield className="size-4" aria-hidden="true" /> Terms
-            </Link>
-          </div>
-        )}
+              <Link href="/ghost-plus" role="menuitem" onClick={() => setMore(false)}>
+                <Sparkles className="size-4" aria-hidden="true" /> Ghost+
+              </Link>
+              <Link href="/settings" role="menuitem" onClick={() => setMore(false)}>
+                <Settings className="size-4" aria-hidden="true" /> Settings
+              </Link>
+              {dev && (
+                <Link href="/dev" role="menuitem" onClick={() => setMore(false)}>
+                  <FlaskConical className="size-4" aria-hidden="true" /> Dev playtest
+                </Link>
+              )}
+              <Link href="/privacy" role="menuitem" onClick={() => setMore(false)}>
+                <Shield className="size-4" aria-hidden="true" /> Privacy
+              </Link>
+              <Link href="/terms" role="menuitem" onClick={() => setMore(false)}>
+                <Shield className="size-4" aria-hidden="true" /> Terms
+              </Link>
+            </div>
+          )}
+        </div>
       </nav>
     </>
   )

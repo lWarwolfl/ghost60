@@ -259,6 +259,7 @@ body {
 }
 
 .bottom-nav-inner {
+  position: relative;
   display: flex;
   align-items: flex-end;
   justify-content: space-around;
@@ -289,8 +290,14 @@ body {
   color: var(--color-spectral-cyan);
 }
 
+.bottom-nav-tab span {
+  line-height: 1;
+  text-align: center;
+}
+
 .bottom-nav-tab[data-primary='true'] {
   margin-top: -22px;
+  gap: 10px;
   color: var(--color-ghost-muted);
 }
 
@@ -314,7 +321,7 @@ body {
 
 .bottom-nav-sheet {
   position: absolute;
-  right: 12px;
+  right: 6px;
   bottom: calc(100% + 10px);
   display: flex;
   min-width: 12rem;

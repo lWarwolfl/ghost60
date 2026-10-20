@@ -31,8 +31,6 @@ type TLogInput = Omit<Extract<GameInputEvent, { type: 'tap' }>, 't'> | Omit<Extr
 
 export function useRunSession(game: TPublicGame, token: string, ready = true) {
   const [phase, setPhase] = useState<TRunPhase>('loading')
-  const [count, setCount] = useState(3)
-  const [countVisible, setCountVisible] = useState(false)
   const acceptingRef = useRef(false)
   const [result, setResult] = useState<TRunResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -175,8 +173,6 @@ export function useRunSession(game: TPublicGame, token: string, ready = true) {
         if (cancelled || finished) return
         const now = performance.now()
         const countdown = countdownState(now - countdownStart)
-        setCount(countdown.count)
-        setCountVisible(countdown.visible)
         const clock = runClock(now, runStartRef.current, game.durationMs)
         if (countdown.count !== lastCount) {
           lastCount = countdown.count
@@ -256,8 +252,8 @@ export function useRunSession(game: TPublicGame, token: string, ready = true) {
   }, [doSubmit, token])
 
   return useMemo(
-    () => ({ phase, count, countVisible, result, error, eventsRef, scoreRef, reportScore, logEvent, getElapsed, retryPending, reduced, skin, ghost, ghostMeta }),
-    [phase, count, countVisible, result, error, logEvent, getElapsed, retryPending, reduced, skin, ghost, ghostMeta, reportScore]
+    () => ({ phase, result, error, eventsRef, scoreRef, reportScore, logEvent, getElapsed, retryPending, reduced, skin, ghost, ghostMeta }),
+    [phase, result, error, logEvent, getElapsed, retryPending, reduced, skin, ghost, ghostMeta, reportScore]
   )
 }
 

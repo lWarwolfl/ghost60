@@ -76,14 +76,14 @@ export function SpecialGame() {
       </div>
       <p className="text-ghost-muted relative mt-2 text-sm leading-6">{game.instruction}</p>
       <div className="relative mt-3 flex items-center justify-between gap-3">
-        <span className="tnum text-spectral-amber text-xs tracking-[0.14em] uppercase">
+        <span className="tnum text-signal-amber text-xs tracking-[0.14em] uppercase">
           {now === null ? '--:--:--' : remaining(game.endsAt, now)} left
         </span>
         <button
           type="button"
           onClick={() => void play()}
           disabled={create.isPending || (now !== null && Date.parse(game.endsAt) <= now)}
-          className="rounded-control bg-spectral-amber font-display font-800 text-ink-950 min-h-11 px-5 text-xs tracking-[0.14em] disabled:opacity-50"
+          className="rounded-control bg-signal-amber font-display font-800 text-ink-950 min-h-11 px-5 text-xs tracking-[0.14em] disabled:opacity-50"
         >
           {create.isPending ? 'OPENING…' : 'PLAY FLASH'}
         </button>
