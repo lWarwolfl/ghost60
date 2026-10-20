@@ -1,11 +1,14 @@
 'use client'
 
+import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, Copy, Share2, X } from 'lucide-react'
+import { Check, Copy, Download, Image as ImageIcon, Share2, X } from 'lucide-react'
 import { GhostAvatar } from '@/components/brand/ghost-avatar'
 import { track } from '@/lib/analytics/track'
-import { shareMessage } from '@/lib/game/share'
+import { getSkin } from '@/lib/game/skins'
+import { shareFileName, shareMessage } from '@/lib/game/share'
+import { renderShareCard } from '@/lib/game/share-card'
 
 export type TShareSheetData = {
   url: string
@@ -52,6 +55,10 @@ export function ShareSheet({
   const onCloseRef = useRef(onClose)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [card, setCard] = useState<{ url: string; blob: Blob } | null>(null)
+  const [cardError, setCardError] = useState(false)
+  const cardUrl = useRef<string | null>(null)
   const absolute =
     typeof window === 'undefined' ? data.url : new URL(data.url, window.location.origin).toString()
   const handle = data.handle?.replace(/^@/, '') ?? 'anonymous'
@@ -101,6 +108,58 @@ export function ShareSheet({
     }
   }, [open])
 
+  useEffect(() => () => {
+    if (cardUrl.current) URL.revokeObjectURL(cardUrl.current)
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    const skin = getSkin(data.ghostSkin ?? '')
+    const gradient: [string, string] = skin?.avatar.gradient ?? ['#62F7E6', '#A98BFF']
+    void renderShareCard({
+      score: data.score,
+      gameTitle: data.gameTitle,
+      gameId: data.gameId,
+      dateLabel: displayDate(data.gameDate),
+      handle: data.handle,
+      personalBest: data.personalBest,
+      streak: data.streak,
+      challengeHandle: data.challengeHandle,
+      challengeTarget: data.challengeTarget,
+      url: absolute,
+      ghostGradient: gradient
+    })
+      .then((blob) => {
+        if (cancelled) return
+        const url = URL.createObjectURL(blob)
+        const previous = cardUrl.current
+        cardUrl.current = url
+        setCard({ url, blob })
+        setCardError(false)
+        if (previous) setTimeout(() => URL.revokeObjectURL(previous), 0)
+      })
+      .catch(() => {
+        if (!cancelled) setCardError(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [
+    open,
+    absolute,
+    data.score,
+    data.gameTitle,
+    data.gameId,
+    data.gameDate,
+    data.handle,
+    data.ghostSkin,
+    data.personalBest,
+    data.streak,
+    data.challengeHandle,
+    data.challengeTarget
+  ])
+
   const copiedFor = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(
     () => () => {
@@ -112,6 +171,7 @@ export function ShareSheet({
   const markCopied = () => {
     setCopied(true)
     setError(null)
+    setNotice(null)
     if (copiedFor.current) clearTimeout(copiedFor.current)
     copiedFor.current = setTimeout(() => setCopied(false), 2500)
   }
@@ -126,12 +186,56 @@ export function ShareSheet({
     }
   }
 
-  const share = async () => {
+  const saveImage = () => {
+    if (!card) return
+    const link = document.createElement('a')
+    link.href = card.url
+    link.download = shareFileName(data.gameTitle, data.score)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
     setError(null)
+    setNotice('Image saved to your device.')
+    track('challenge_shared', { surface: 'result_sheet', action: 'image_save' })
+  }
+
+  const shareImage = async () => {
+    if (!card) return
+    setError(null)
+    setNotice(null)
+    let file: File
+    try {
+      file = new File([card.blob], shareFileName(data.gameTitle, data.score), {
+        type: 'image/png'
+      })
+    } catch {
+      saveImage()
+      return
+    }
+    const canShareImage =
+      typeof navigator.share === 'function' &&
+      typeof navigator.canShare === 'function' &&
+      navigator.canShare({ files: [file] })
+    if (canShareImage) {
+      try {
+        await navigator.share({ files: [file], title: `Ghost60 · ${data.gameTitle}`, text })
+        track('challenge_shared', { surface: 'result_sheet', action: 'image_native' })
+        onCloseRef.current()
+        return
+      } catch (reason) {
+        if (reason instanceof DOMException && reason.name === 'AbortError') return
+      }
+    }
+    saveImage()
+  }
+
+  const shareLink = async () => {
+    setError(null)
+    setNotice(null)
     if (typeof navigator.share === 'function') {
       try {
         await navigator.share({ title: `Ghost60 · ${data.gameTitle}`, text, url: absolute })
-        track('challenge_shared', { surface: 'result_sheet', action: 'native' })
+        track('challenge_shared', { surface: 'result_sheet', action: 'link_native' })
         onCloseRef.current()
         return
       } catch (reason) {
@@ -173,7 +277,8 @@ export function ShareSheet({
               id="share-sheet-copy"
               className="text-ghost-muted mt-1 max-w-[30ch] text-xs leading-5"
             >
-              Your ghost is attached. Send the link to someone who thinks they can catch you.
+              Your ghost is attached. Send the card, or the link, to someone who thinks they can
+              catch you.
             </p>
           </div>
           <button
@@ -187,26 +292,60 @@ export function ShareSheet({
           </button>
         </div>
 
-        <ShareCard
-          data={data}
-          handle={handle}
-          absolute={absolute}
-          date={displayDate(data.gameDate)}
-        />
+        {card ? (
+          <Image
+            src={card.url}
+            alt={`Ghost60 share card: ${data.score} points in ${data.gameTitle}`}
+            width={1080}
+            height={1350}
+            unoptimized
+            className="border-white/12 h-auto w-full rounded-[22px] border"
+          />
+        ) : (
+          <ShareCard
+            data={data}
+            handle={handle}
+            absolute={absolute}
+            date={displayDate(data.gameDate)}
+          />
+        )}
+        {cardError ? (
+          <p className="text-rival-coral mt-2 text-center text-[10px]">
+            Couldn’t render the image. Link sharing still works.
+          </p>
+        ) : null}
 
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={() => void share()}
-            className="rounded-control bg-spectral-cyan font-display text-ink-950 flex min-h-12 items-center justify-center gap-2 px-4 text-xs font-800 tracking-[0.16em] sm:col-span-2"
+            onClick={() => void shareImage()}
+            disabled={!card}
+            className="rounded-control bg-spectral-cyan font-display text-ink-950 flex min-h-12 items-center justify-center gap-2 px-4 text-xs font-800 tracking-[0.16em] disabled:opacity-40 sm:col-span-2"
+          >
+            <ImageIcon className="size-4" aria-hidden="true" />
+            {card ? 'SHARE IMAGE' : cardError ? 'IMAGE UNAVAILABLE' : 'RENDERING IMAGE…'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void shareLink()}
+            className="rounded-control font-display flex min-h-11 items-center justify-center gap-2 border border-white/15 px-3 text-[10px] font-800 tracking-[0.14em]"
           >
             <Share2 className="size-4" aria-hidden="true" />
-            SHARE GHOST LINK
+            SHARE LINK
+          </button>
+          <button
+            type="button"
+            onClick={saveImage}
+            disabled={!card}
+            className="rounded-control font-display flex min-h-11 items-center justify-center gap-2 border border-white/15 px-3 text-[10px] font-800 tracking-[0.14em] disabled:opacity-40"
+          >
+            <Download className="size-4" aria-hidden="true" />
+            SAVE IMAGE
           </button>
           <button
             type="button"
             onClick={() => void copy('button')}
-            className="rounded-control font-display flex min-h-11 items-center justify-center gap-2 border border-white/15 px-3 text-[10px] font-800 tracking-[0.14em]"
+            className="rounded-control font-display flex min-h-10 items-center justify-center gap-2 px-3 text-[10px] font-800 tracking-[0.14em] text-ghost-muted sm:col-span-2"
           >
             {copied ? (
               <Check className="text-signal-lime size-4" aria-hidden="true" />
@@ -215,20 +354,13 @@ export function ShareSheet({
             )}
             {copied ? 'COPIED' : 'COPY LINK'}
           </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-control text-ghost-muted flex min-h-11 items-center justify-center border border-white/10 px-3 text-[10px] font-800 tracking-[0.14em]"
-          >
-            NOT NOW
-          </button>
         </div>
-        {error || copied ? (
+        {error || notice || copied ? (
           <p
             role="status"
             className={`mt-3 text-center text-[10px] ${error ? 'text-rival-coral' : 'text-signal-lime'}`}
           >
-            {error ?? 'Link copied. It’s ready to paste.'}
+            {error ?? notice ?? 'Link copied. It’s ready to paste.'}
           </p>
         ) : null}
         {error ? (

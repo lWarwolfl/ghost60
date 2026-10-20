@@ -295,7 +295,7 @@ function ResultPanel({
               : 'SHARE RESULT'}
         </button>
         <p className="text-ghost-muted text-[10px] tracking-[0.08em]">
-          Creates a ghost link anyone can race.
+          Creates a shareable ghost card and link.
         </p>
         <button
           type="button"
@@ -305,9 +305,9 @@ function ResultPanel({
           BACK TO TODAY
         </button>
       </div>
-      {sharedUrl ? (
+      {sharedUrl && shareOpen ? (
         <ShareSheet
-          open={shareOpen}
+          open
           onClose={() => setShareOpen(false)}
           data={{
             url: sharedUrl,

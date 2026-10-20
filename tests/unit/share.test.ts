@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { shareMessage } from '@/lib/game/share'
+import { shareFileName, shareMessage } from '@/lib/game/share'
 
 describe('shareMessage', () => {
   it('invites a race for a solo run', () => {
@@ -14,5 +14,9 @@ describe('shareMessage', () => {
     expect(shareMessage({ score: 900, gameTitle: 'First Signal', challengeHandle: 'nova' })).toBe(
       "I raced @nova's ghost on First Signal and scored 900. Think you can catch me?"
     )
+  })
+  it('makes a safe image filename', () => {
+    expect(shareFileName('Clean Orbit', 1200)).toBe('ghost60-clean-orbit-1200.png')
+    expect(shareFileName('  ??? ', 0)).toBe('ghost60-run-0.png')
   })
 })

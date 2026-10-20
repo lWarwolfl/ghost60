@@ -13,3 +13,12 @@ export function shareMessage({
   }
   return `I scored ${score} on ${gameTitle}. Can you catch my ghost?`
 }
+
+export function shareFileName(gameTitle: string, score: number) {
+  const slug = gameTitle
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+  return `ghost60-${slug || 'run'}-${score}.png`
+}
+
