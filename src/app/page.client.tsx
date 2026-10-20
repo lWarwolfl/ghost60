@@ -3,23 +3,23 @@
 import Link from 'next/link'
 import { GameIcon } from '@/components/brand/game-icon'
 import { Ghost60Mark } from '@/components/brand/ghost60-mark'
-import { ResetCountdown } from '@/components/game/reset-countdown'
+import { RunMeter } from '@/components/game/run-meter'
+import { SpecialGame } from '@/components/game/special-game'
 import { useCharges } from '@/features/game/queries/useCharges.query'
 import { useTodayGame } from '@/features/game/queries/useTodayGame.query'
 import { useLocalProgress } from '@/lib/hooks/useLocalProgress.hook'
 import { Footer } from '@/components/layout/footer'
-import { Header } from '@/components/layout/header'
 
 const STEPS = [
   {
     n: '01',
     title: 'See today’s game',
-    body: 'Same seed, same config, same duration for everyone. No retries on ranked.'
+    body: 'Same seed, same config, same duration for everyone. Five runs a day on free.'
   },
   {
     n: '02',
-    title: 'Spend your one run',
-    body: 'Server replays your input stream and decides the score. Client numbers are just a preview.'
+    title: 'Race your ghost',
+    body: 'Every run races your best trace from this game. The server replays your input to decide the score.'
   },
   {
     n: '03',
@@ -34,22 +34,23 @@ export function HomeClient() {
   const local = useLocalProgress()
   return (
     <div className="flex min-h-dvh flex-col bg-ink-950 text-ghost-text">
-      <Header />
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-8 sm:max-w-2xl">
         <section aria-labelledby="hero" className="flex flex-col gap-5 animate-enter">
-          <Ghost60Mark motion="ambient" className="size-14" />
           <div className="flex flex-col gap-3">
-            <h1
-              id="hero"
-              className="font-display text-5xl font-800 leading-[0.95] tracking-tight"
-            >
-              ONE MINUTE.
-              <br />
-              ONE RUN.
-            </h1>
+            <div className="flex items-center gap-4">
+              <Ghost60Mark motion="ambient" className="size-14 shrink-0" />
+              <h1
+                id="hero"
+                className="font-display text-3xl font-800 leading-[0.95] tracking-tight min-[360px]:text-4xl sm:text-5xl"
+              >
+                ONE GAME.
+                <br />
+                FIVE SHOTS.
+              </h1>
+            </div>
             <p className="max-w-md text-base leading-7 text-ghost-muted">
-              Everyone gets the same game. You get one ranked attempt. Leave a ghost. Send it to
-              a friend.
+              Everyone gets the same game. Five runs a day on free, unlimited on Ghost+. Every
+              run races your best ghost.
             </p>
           </div>
           <div className="flex flex-col gap-3">
@@ -59,7 +60,7 @@ export function HomeClient() {
             >
               PLAY TODAY’S GHOST
             </Link>
-            <ResetCountdown />
+            <RunMeter remaining={charges.data?.remaining} limit={charges.data?.limit} />
           </div>
         </section>
 
@@ -69,9 +70,9 @@ export function HomeClient() {
         >
           {isPending && <p role="status" className="text-sm text-ghost-muted">Loading today’s game…</p>}
           {isError && (
-            <div role="alert" className="text-sm text-rival-coral">
-              <p>{error.message}</p>
-              <button type="button" onClick={() => void refetch()} className="min-h-11 underline">Retry today’s game</button>
+            <div role="status" className="text-sm text-ghost-muted">
+              <p>{error.message === 'no-game-today' ? 'Today’s game is warming up.' : 'Today’s game took a moment to load.'}</p>
+              <button type="button" onClick={() => void refetch()} className="mt-2 min-h-11 underline">Try again</button>
             </div>
           )}
           {today && !isError && <div className="flex items-start justify-between gap-4">
@@ -94,10 +95,12 @@ export function HomeClient() {
               Preflight instructions
             </Link>
             <span className="tnum rounded-control bg-surface-700 px-3 py-2 text-xs text-ghost-muted">
-              {charges.data && !charges.isError ? charges.data.rankedAvailable ? '1 ranked available' : 'Ranked spent' : '1 ranked daily'}
+              {charges.data ? (charges.data.limit === null ? 'Unlimited' : `${charges.data.remaining} runs left`) : '5 runs daily'}
             </span>
           </div>
         </section>
+
+        <SpecialGame />
 
         {local.runs.length > 0 && (
           <section
@@ -113,14 +116,8 @@ export function HomeClient() {
                 {local.xpTotal > 0 ? ` · ${local.xpTotal} XP` : ''}
               </p>
             </div>
-            <span
-              className={`rounded-control px-2.5 py-1 text-[10px] tracking-[0.14em] uppercase ${
-                local.pending
-                  ? 'text-signal-amber bg-signal-amber/10'
-                  : 'text-signal-lime bg-signal-lime/10'
-              }`}
-            >
-              {local.pending ? `${local.pending} syncing` : 'synced'}
+            <span className="rounded-control bg-signal-lime/10 text-signal-lime px-2.5 py-1 text-[10px] tracking-[0.14em] uppercase">
+              Saved
             </span>
           </section>
         )}
@@ -151,8 +148,8 @@ export function HomeClient() {
             TRAIN AGAINST YOUR PAST.
           </h2>
           <p className="mt-1 text-sm leading-6 text-ghost-muted">
-            Ghost+ unlocks unlimited practice. Everyone still gets exactly one ranked attempt
-            per UTC day — ranked fairness never changes.
+            Ghost+ makes every run unlimited and opens the full archive, deeper history, and all
+            cosmetics. Challenge races stay free.
           </p>
           <Link
             href="/ghost-plus"

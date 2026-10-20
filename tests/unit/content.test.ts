@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { buildDayConfig } from '@/games/content/builder'
 import { loadCatalog, loadSchedule, validateScheduleRules, type TScheduleDay } from '@/games/content/schedule'
 import { simulateDay } from '@/games/content/simulate'
+import { angleDistDeg } from '@/games/orbit/engine'
+import { markerAngleAt } from '@/games/orbit/table'
 
 const schedule = loadSchedule()
 const catalog = loadCatalog()
@@ -41,6 +43,20 @@ describe('day config builder', () => {
   it('derives distinct seeds per day', () => {
     const seeds = new Set(schedule.days.map((d) => buildDayConfig(d).seed))
     expect(seeds.size).toBe(30)
+  })
+  it('aligns every orbit arc with the marker midpoint', () => {
+    const orbitDays = schedule.days.filter((d) => d.engine === 'orbit')
+    expect(orbitDays.length).toBeGreaterThan(0)
+    for (const day of orbitDays) {
+      const built = buildDayConfig(day)
+      const config = built.config as {
+        targets: Array<{ angleDeg: number; openMs: number; closeMs: number; perfectTolDeg: number }>
+      }
+      for (const target of config.targets) {
+        const marker = markerAngleAt((target.openMs + target.closeMs) / 2)
+        expect(angleDistDeg(marker, target.angleDeg)).toBeLessThanOrEqual(target.perfectTolDeg)
+      }
+    }
   })
 })
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { feedbackState, committedGhost, pulseAssignments, recallFeedback, traceFeedback, inputTime, countdownState } from '@/lib/game/gameplay-motion'
+import { feedbackState, committedGhost, ghostAt, pulseAssignments, recallFeedback, traceFeedback, inputTime, countdownState } from '@/lib/game/gameplay-motion'
 
 describe('gameplay motion', () => {
   it('keeps input on the monotonic runtime boundary, independent of decoration', () => {
@@ -33,6 +33,14 @@ describe('gameplay motion', () => {
     expect(committedGhost(timeline, [150, null, 250], 250)).toEqual([timeline[0]])
     expect(committedGhost(timeline, [150, 260, 310], 250)).toEqual([timeline[0]])
     expect(committedGhost(timeline, [150, 260, 310], 320)).toEqual(timeline)
+  })
+
+  it('moves the race ghost only up to the elapsed sample and derives score from progress', () => {
+    const timeline = [{ t: 100, progress: 0.5, score: 400 }, { t: 200, progress: 1, score: 900 }]
+    expect(ghostAt(timeline, 99, 900)).toEqual({ progress: 0, score: 0 })
+    expect(ghostAt(timeline, 100, 900)).toEqual({ progress: 0.5, score: 400 })
+    expect(ghostAt(timeline, 500, 900)).toEqual({ progress: 1, score: 900 })
+    expect(ghostAt([{ t: 50, progress: 0.3 }], 80, 1000)).toEqual({ progress: 0.3, score: 300 })
   })
 
   it('matches pulse scorer assignment rather than attributing every tap to the nearest target', () => {

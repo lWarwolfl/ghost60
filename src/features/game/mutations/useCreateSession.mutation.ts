@@ -28,6 +28,6 @@ export function useCreateSession() {
       else if (mode === 'past_self') track('past_self_started', {})
     },
     onSettled: () => client.invalidateQueries({ queryKey: [QUERY_KEYS.CHARGES] }),
-    retry: 0
+    retry: 1
   })
 }

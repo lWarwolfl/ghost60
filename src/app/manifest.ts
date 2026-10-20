@@ -2,10 +2,10 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Ghost60 — One minute. One run.',
+    name: 'Ghost60 — Five runs. One ghost.',
     short_name: 'Ghost60',
     description:
-      'Everyone gets the same game. You get one ranked attempt. Leave a ghost. Send it to a friend.',
+      'Everyone gets the same game. Five runs a day free, unlimited with Ghost+. Every run races your best ghost.',
     start_url: '/',
     scope: '/',
     display: 'standalone',

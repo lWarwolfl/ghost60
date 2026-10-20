@@ -88,21 +88,6 @@ export async function POST(req: Request) {
     events
   })
 
-  if (session.mode === 'ranked' && result.valid) {
-    const dup = await tx
-      .select({ id: Run.id })
-      .from(Run)
-      .where(
-        and(
-          eq(Run.userId, user.id),
-          eq(Run.dailyGameId, game.id),
-          eq(Run.mode, 'ranked'),
-          eq(Run.valid, true)
-        )
-      )
-    if (dup.length > 0) return NextResponse.json({ error: 'ranked-used' }, { status: 409 })
-  }
-
   try {
     const inserted = await tx
       .insert(Run)
@@ -174,7 +159,7 @@ export async function POST(req: Request) {
     const applied = await applyProgression(progressionInput, tx)
     return NextResponse.json({ run, outcome, pastSelfOutcome, progression: { xpAwarded: applied.xpAwarded, unlocked: applied.unlocked, isPersonalBest: applied.isPersonalBest } })
   } catch (e) {
-    if (isConflict(e)) return NextResponse.json({ error: 'ranked-used' }, { status: 409 })
+    if (isConflict(e)) return NextResponse.json({ error: 'submit-conflict' }, { status: 409 })
     throw e
   }
   })

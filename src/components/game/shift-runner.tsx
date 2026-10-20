@@ -9,16 +9,19 @@ import { arrowFor, currentShiftCard, shiftRuleFor } from '@/games/shift/table'
 import { gameplayLoop, committedGhost } from '@/lib/game/gameplay-motion'
 import { drawSkinAvatar } from '@/lib/game/skin-renderer'
 import { audio } from '@/lib/game/audio'
+import { PromptFlash } from '@/components/game/prompt-flash'
 
 type TChoice = Extract<GameInputEvent, { type: 'choice' }>
 
 export function ShiftRunner({
   game,
   session,
+  onReady,
   rivalScore = null
 }: {
   game: TPublicGame
   session: TRunSession
+  onReady?: () => void
   rivalScore?: number | null
 }) {
   const timeRef = useRef<HTMLSpanElement>(null)
@@ -30,6 +33,8 @@ export function ShiftRunner({
   const departureRef = useRef<HTMLSpanElement>(null)
   const rivalRef = useRef<HTMLSpanElement>(null)
   const previousRuleRef = useRef<string | null>(null)
+  const promptRef = useRef(-1)
+  const [prompt, setPrompt] = useState<{ key: number; label: string; tone: 'violet' | 'cyan' } | null>(null)
   const verdictRef = useRef<{ ok: boolean; at: number; side: 0 | 1; arrow: 0 | 1 } | null>(null)
   const [score, setScore] = useState(0)
   const [answered, setAnswered] = useState(0)
@@ -37,6 +42,10 @@ export function ShiftRunner({
   const durationMs = game.durationMs
   const cards = config.cards
   const current = currentShiftCard(cards.length, answered)
+
+  useEffect(() => {
+    onReady?.()
+  }, [onReady])
 
   const dots = (() => {
     const taps = session.eventsRef.current.filter((e) => e.type === 'choice') as TChoice[]
@@ -70,6 +79,14 @@ export function ShiftRunner({
           ruleRef.current?.animate(session.reduced ? [{ opacity: 0.7 }, { opacity: 1 }] : [{ opacity: 0.7, transform: 'translateX(-2px)' }, { opacity: 1, transform: 'translateX(0)' }], { duration: session.reduced ? 120 : 140 })
         }
         previousRuleRef.current = rule
+      }
+      if (presented && current !== -1 && promptRef.current !== current) {
+        promptRef.current = current
+        setPrompt(
+          rule === 'reversed'
+            ? { key: current, label: 'TAP OPPOSITE', tone: 'violet' }
+            : { key: current, label: 'TAP THE ARROW', tone: 'cyan' }
+        )
       }
       const seen = committedGhost(session.ghost?.timeline ?? [], session.eventsRef.current.map(e => e.t), elapsed)
       if (rivalRef.current) rivalRef.current.textContent = seen.length ? `GHOST ${seen.length}/${cards.length}` : ''
@@ -105,7 +122,8 @@ export function ShiftRunner({
       return elapsed < durationMs
     }
     return gameplayLoop(loop)
-  }, [cards, current, durationMs, session])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- countdown ticks must not re-init the canvas
+  }, [cards, current, durationMs, session.skin, session.reduced])
 
   const choose = (side: 0 | 1) => {
     if (session.phase !== 'running') return
@@ -116,6 +134,7 @@ export function ShiftRunner({
     if (session.logEvent({ type: 'choice', value: side }) < 0) return
     const res = shiftEngine.scoreRun({ seed: game.seed, config, events: session.eventsRef.current, visibilityInterruptions: 0 })
     setScore(res.score)
+    session.reportScore(res.score)
     const card = active
     const taps = session.eventsRef.current.filter((e) => e.type === 'choice') as TChoice[]
     const last = taps[taps.length - 1]
@@ -173,6 +192,8 @@ export function ShiftRunner({
       >
         {rule === 'reversed' ? '⇄ REVERSED — TAP THE OPPOSITE SIDE' : '⇉ RULE — TAP THE ARROW SIDE'}
       </div>
+
+      <PromptFlash key={prompt?.key ?? 'none'} label={prompt?.label ?? ''} tone={prompt?.tone ?? 'cyan'} />
 
       <div className="game-arena relative mt-2 flex flex-1 flex-col items-center justify-center gap-2 py-4" aria-hidden={current === -1}>
         {current === -1 ? (

@@ -12,7 +12,7 @@ import { useReducedMotion } from '@/lib/hooks/useReducedMotion.hook'
 import type { GameInputEvent } from '@/games/core/game-module'
 import { getGame } from '@/games/registry'
 
-export type TRunPhase = 'countdown' | 'running' | 'finishing' | 'result' | 'error'
+export type TRunPhase = 'loading' | 'countdown' | 'running' | 'finishing' | 'result' | 'error'
 
 export type TRunResult = {
   score: number
@@ -29,14 +29,15 @@ export type TRunResult = {
 type TLogInput = Omit<Extract<GameInputEvent, { type: 'tap' }>, 't'> | Omit<Extract<GameInputEvent, { type: 'choice' }>, 't'> | Omit<Extract<GameInputEvent, { type: 'pointer_down' | 'pointer_move' | 'pointer_up' }>, 't'>
 
 
-export function useRunSession(game: TPublicGame, token: string) {
-  const [phase, setPhase] = useState<TRunPhase>('countdown')
+export function useRunSession(game: TPublicGame, token: string, ready = true) {
+  const [phase, setPhase] = useState<TRunPhase>('loading')
   const [count, setCount] = useState(3)
-  const [countVisible, setCountVisible] = useState(true)
+  const [countVisible, setCountVisible] = useState(false)
   const acceptingRef = useRef(false)
   const [result, setResult] = useState<TRunResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const eventsRef = useRef<GameInputEvent[]>([])
+  const scoreRef = useRef(0)
   const visRef = useRef(0)
   const runStartRef = useRef(0)
   const consumeRef = useRef<(() => Promise<boolean>) | null>(null)
@@ -48,7 +49,12 @@ export function useRunSession(game: TPublicGame, token: string) {
   })
   const reduced = useReducedMotion()
   const skin = useEquippedSkin()
-  const ghost = useGameStore(state => state.snapshot?.token === token ? state.snapshot.pastSelf?.ghost ?? state.snapshot.challenge?.ghost : undefined)
+  const snapshot = useGameStore(state => (state.snapshot?.token === token ? state.snapshot : null))
+  const ghostMeta = snapshot?.ghost ?? null
+  const ghost = ghostMeta?.ghost ?? snapshot?.pastSelf?.ghost ?? snapshot?.challenge?.ghost
+  const reportScore = useCallback((value: number) => {
+    scoreRef.current = value
+  }, [])
 
   const getElapsed = useCallback(() => {
     if (!runStartRef.current) return 0
@@ -86,10 +92,14 @@ export function useRunSession(game: TPublicGame, token: string) {
         isLocalBest: local.personalBest,
         syncError: null
       }
-      setResult(localResult)
-      setPhase('result')
+      let finalResult = localResult
       try {
-        const data = await submitRef.current({ token, events, visibilityInterruptions })
+        // Confirm the run before showing the result so profile/streak reads never race the save.
+        const data = await Promise.race([
+          submitRef.current({ token, events, visibilityInterruptions }),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000))
+        ])
+        if (!data) throw new Error('timeout')
         await clearPending(token).catch(() => undefined)
         const patch = {
           score: data.run.validatedScore,
@@ -98,7 +108,7 @@ export function useRunSession(game: TPublicGame, token: string) {
           personalBest: data.progression?.isPersonalBest ?? false
         }
         markLocalRunSynced(token, patch)
-        setResult({
+        finalResult = {
           score: data.run.validatedScore,
           valid: data.run.valid,
           runId: String(data.run.id),
@@ -108,21 +118,24 @@ export function useRunSession(game: TPublicGame, token: string) {
           provisional: false,
           isLocalBest: false,
           syncError: null
-        })
+        }
         if (data.run.valid && (data.outcome === 'win' || patch.personalBest)) audio.win()
       } catch (e) {
-        setResult({
+        finalResult = {
           ...localResult,
           syncError: e instanceof TypeError ? 'offline' : e instanceof Error ? e.message : 'submit-failed'
-        })
+        }
       } finally {
         submittingRef.current = false
       }
+      setResult(finalResult)
+      setPhase('result')
     },
     [game, token]
   )
 
   useEffect(() => {
+    if (!ready) return
     let cancelled = false
     let timer: ReturnType<typeof setTimeout>
     let finished = false
@@ -187,6 +200,15 @@ export function useRunSession(game: TPublicGame, token: string) {
     void begin()
     const onVis = () => {
       if (document.visibilityState === 'hidden' && acceptingRef.current) visRef.current += 1
+      if (document.visibilityState === 'hidden' && eventsRef.current.length) {
+        void savePending({
+          token,
+          gameId: game.gameId,
+          events: [...eventsRef.current],
+          visibilityInterruptions: visRef.current,
+          savedAt: Date.now()
+        }).catch(() => undefined)
+      }
       if (runStartRef.current && (eventsRef.current.length || performance.now() - runStartRef.current >= 3000)) void consumeRef.current?.()
     }
     document.addEventListener('visibilitychange', onVis)
@@ -199,7 +221,7 @@ export function useRunSession(game: TPublicGame, token: string) {
       document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener('pagehide', onVis)
     }
-  }, [doSubmit, game.durationMs, token])
+  }, [doSubmit, game.durationMs, game.gameId, ready, token])
 
   useEffect(() => {
     const onOnline = () => {
@@ -234,8 +256,8 @@ export function useRunSession(game: TPublicGame, token: string) {
   }, [doSubmit, token])
 
   return useMemo(
-    () => ({ phase, count, countVisible, result, error, eventsRef, logEvent, getElapsed, retryPending, reduced, skin, ghost }),
-    [phase, count, countVisible, result, error, logEvent, getElapsed, retryPending, reduced, skin, ghost]
+    () => ({ phase, count, countVisible, result, error, eventsRef, scoreRef, reportScore, logEvent, getElapsed, retryPending, reduced, skin, ghost, ghostMeta }),
+    [phase, count, countVisible, result, error, logEvent, getElapsed, retryPending, reduced, skin, ghost, ghostMeta, reportScore]
   )
 }
 

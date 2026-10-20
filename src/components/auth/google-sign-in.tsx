@@ -13,10 +13,10 @@ export function GoogleSignIn() {
     setPending(true)
     try {
       const result = await authClient.signIn.social({ provider: 'google', callbackURL: '/profile' })
-      if (result.error)
-        throw new Error(result.error.message ?? 'Could not sign in. Please try again.')
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Could not sign in. Please try again.')
+      if (result.error) throw result.error
+    } catch {
+      // The redirect often resolves after the promise settles; only surface a failure if we stay on the page.
+      setTimeout(() => setError('Google sign-in did not open. Please try again.'), 2500)
     } finally {
       setPending(false)
     }

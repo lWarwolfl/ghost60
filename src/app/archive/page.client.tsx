@@ -34,7 +34,11 @@ export function ArchiveClient() {
       )
       router.push('/play/run')
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'session-failed')
+      setError(
+        error instanceof Error && error.message === 'charges-empty'
+          ? 'No runs left today. Ghost+ is unlimited.'
+          : 'Couldn’t open that trace. Try again.'
+      )
     }
   }
   const startPlaylist = async () => {
@@ -46,20 +50,20 @@ export function ArchiveClient() {
       const snapshot = await create.mutateAsync({ mode: 'practice', dailyGameId: first })
       setSnapshot({ ...snapshot, playlist: remaining })
       router.push('/play/run')
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'session-failed')
+    } catch {
+      setError('Couldn’t open the playlist. Try again.')
     }
   }
   const share = async (runId: string) => {
     setError(null)
     try {
       setUrl((await challenge.mutateAsync(runId)).url)
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'challenge-failed')
+    } catch {
+      setError('Couldn’t create the challenge. Try again.')
     }
   }
   if (isLoading) return <p className="text-ghost-muted text-sm">Loading archive…</p>
-  if (isError || !data) return <p className="text-rival-coral text-sm">Could not load archive.</p>
+  if (isError || !data) return <p className="text-ghost-muted text-sm">The archive took a moment. Refresh to try again.</p>
   return (
     <div className="flex flex-col gap-4">
       <Link href="/archive/history" className="min-h-11 underline">
@@ -139,12 +143,15 @@ export function ArchiveClient() {
                         >
                           Challenge a friend
                         </button>
+                        <Link href={`/archive/replay/${d.sourceRunId}`} className="min-h-11 underline">
+                          Watch ghost
+                        </Link>
                       </>
                     )}
                   </div>
                 )}
                 <span
-                  title={d.completed ? 'Ranked run completed' : 'No ranked run'}
+                  title={d.completed ? 'Daily run completed' : 'No daily run'}
                   aria-label={d.completed ? 'Completed' : 'Not completed'}
                 >
                   {d.completed ? '●' : '○'}

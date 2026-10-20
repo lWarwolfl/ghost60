@@ -16,7 +16,10 @@ export type TProfile = {
   }
   achievements: Array<{
     achievementId: string
-    detail: { title: string; description: string } | null
+    unlocked: boolean
+    progress: number
+    target: number
+    detail: { title: string; description: string; icon: string } | null
   }>
   recentRuns: Array<{
     id: string

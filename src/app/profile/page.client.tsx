@@ -7,6 +7,7 @@ import { SkinCardFrame } from '@/components/game/skin-card-frame'
 import { resolveSkin } from '@/lib/game/skins'
 import { GhostAvatar } from '@/components/brand/ghost-avatar'
 import { RankBadge, type GhostRank } from '@/components/brand/rank-badge'
+import { AchievementCard } from '@/components/profile/achievement-card'
 import { StreakWisp } from '@/components/brand/streak-wisp'
 import { useEquipCosmetics } from '@/features/game/mutations/useEquipCosmetics.mutation'
 import { useProfile } from '@/features/game/queries/useProfile.query'
@@ -29,23 +30,28 @@ export function ProfileClient() {
   const equip = useEquipCosmetics()
   const [slot, setSlot] = useState<'ghost' | 'card'>('ghost')
   const [cosError, setCosError] = useState<string | null>(null)
+  const [pending, setPending] = useState<{ slot: 'ghost' | 'card'; skinId: string } | null>(null)
   if (isLoading) return <p className="text-ghost-muted text-sm">Loading profile…</p>
-  if (isError || !data) return <p className="text-rival-coral text-sm">Could not load profile.</p>
+  if (isError || !data) return <p className="text-ghost-muted text-sm">Your profile took a moment. Refresh to try again.</p>
   const days = dayStrings(7)
   const played = new Set(
     data.recentRuns.filter((r) => r.valid && r.mode === 'ranked').map((r) => r.gameDate)
   )
   const pct = Math.min(100, Math.round((data.level.intoLevel / data.level.need) * 100))
+  const equippedInSlot = (value: 'ghost' | 'card') =>
+    pending?.slot === value ? pending.skinId : data.cosmetics.equipped[value]
+  const ghostSkin = equippedInSlot('ghost')
   const equippedGradient =
-    data.cosmetics.catalog.find((s) => s.id === data.cosmetics.equipped.ghost)?.gradient ??
+    data.cosmetics.catalog.find((s) => s.id === ghostSkin)?.gradient ??
     (['#62F7E6', '#A98BFF'] as [string, string])
-
-  const cardSkin = resolveSkin(data.cosmetics.equipped.card, data.plan)
+  const cardSkin = resolveSkin(equippedInSlot('card'), data.plan)
   const chooseSkin = async (skinId: string) => {
     setCosError(null)
+    setPending({ slot, skinId })
     try {
       await equip.mutateAsync({ slot, skinId })
     } catch (e) {
+      setPending(null)
       setCosError(
         e instanceof Error && e.message === 'ghost-plus-locked'
           ? 'That skin needs Ghost+.'
@@ -62,7 +68,7 @@ export function ProfileClient() {
       >
         <div className="flex items-center gap-3">
           <GhostAvatar
-            skin={data.cosmetics.equipped.ghost ?? undefined}
+            skin={ghostSkin ?? undefined}
             motion="none"
             className="size-12"
             gradient={equippedGradient}
@@ -145,7 +151,7 @@ export function ProfileClient() {
         <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {data.cosmetics.catalog.map((s) => {
             const lockedSkin = !s.unlocked
-            const active = data.cosmetics.equipped[slot] === s.id
+            const active = equippedInSlot(slot) === s.id
             return (
               <li key={s.id}>
                 <button
@@ -208,17 +214,17 @@ export function ProfileClient() {
         className="rounded-card bg-surface-800 border border-white/10 p-5"
       >
         <p className="text-ghost-muted text-[11px] tracking-[0.18em] uppercase">
-          SIGNAL LOST · rank designs
+          Rank ladder
         </p>
-        <p className="text-ghost-muted mt-2 text-xs">
-          Season ranks are not awarded yet. These are the five badge designs, not your earned
-          status.
+        <p className="text-ghost-muted mt-2 text-xs leading-5">
+          Five signal forms. Wisp is where every ghost starts; Phantom is the top of the ladder.
         </p>
         <ul className="mt-3 grid grid-cols-5 gap-1">
-          {(['wisp', 'shade', 'haunt', 'specter', 'phantom'] as GhostRank[]).map((rank) => (
+          {(['wisp', 'shade', 'haunt', 'specter', 'phantom'] as GhostRank[]).map((rank, index) => (
             <li key={rank} className="flex min-w-0 flex-col items-center gap-1">
-              <RankBadge rank={rank} motion="none" className="size-10" />
-              <span className="text-[9px] uppercase">{rank}</span>
+              <RankBadge rank={rank} motion="none" className="size-11" />
+              <span className="text-[9px] uppercase tracking-[0.12em]">{rank}</span>
+              <span className="text-ghost-muted text-[8px]">T{index + 1}</span>
             </li>
           ))}
         </ul>
@@ -229,25 +235,21 @@ export function ProfileClient() {
         className="rounded-card bg-ink-900 border border-white/10 p-5"
       >
         <p className="text-ghost-muted text-[11px] tracking-[0.18em] uppercase">
-          Achievements · {data.achievements.length}
+          Achievements · {data.achievements.filter((a) => a.unlocked).length} / {data.achievements.length}
         </p>
-        {data.achievements.length === 0 ? (
-          <p className="text-ghost-muted mt-2 text-sm">Finish a valid run to earn your first.</p>
-        ) : (
-          <ul className="mt-2 flex flex-col gap-2">
-            {data.achievements.map((a) => (
-              <li
-                key={a.achievementId}
-                className="rounded-control bg-surface-800 border border-white/10 px-3 py-2 text-sm"
-              >
-                <span className="font-600">{a.detail?.title ?? a.achievementId}</span>
-                {a.detail && (
-                  <span className="text-ghost-muted block text-xs">{a.detail.description}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+        <ul className="mt-3 flex flex-col gap-2">
+          {data.achievements.map((a) => (
+            <AchievementCard
+              key={a.achievementId}
+              title={a.detail?.title ?? a.achievementId}
+              description={a.detail?.description ?? ''}
+              icon={a.detail?.icon ?? 'trophy'}
+              unlocked={a.unlocked}
+              progress={a.progress}
+              target={a.target}
+            />
+          ))}
+        </ul>
       </section>
     </div>
   )

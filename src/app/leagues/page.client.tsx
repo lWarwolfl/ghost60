@@ -176,7 +176,7 @@ export function LeaguesClient() {
           How does best-5-of-7 work?
         </summary>
         <p className="mt-2 text-sm leading-6 text-ghost-muted">
-          Each day your ranked score is converted to 0–100 percentile points against everyone who
+          Each day your daily score is converted to 0–100 percentile points against everyone who
           played that day — never raw points across different games. Your weekly total is the sum of
           your best 5 days (max 500). Ties break on days played, then handle.
         </p>

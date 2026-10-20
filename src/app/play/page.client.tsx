@@ -6,54 +6,52 @@ import { useEffect, useState } from 'react'
 import { GameIcon } from '@/components/brand/game-icon'
 import { TrackView } from '@/components/analytics/track-view'
 import { Footer } from '@/components/layout/footer'
-import { Header } from '@/components/layout/header'
+import { RunMeter } from '@/components/game/run-meter'
 import { useCreateSession } from '@/features/game/mutations/useCreateSession.mutation'
 import { useTodayGame } from '@/features/game/queries/useTodayGame.query'
 import { useCharges } from '@/features/game/queries/useCharges.query'
 import { useGameStore } from '@/features/game/store/game-store'
 import { track } from '@/lib/analytics/track'
 import { audio } from '@/lib/game/audio'
-import { getErrorMessage } from '@/lib/utils'
-import { authClient } from '@/lib/auth/client'
 
 export function PreflightClient() {
   const router = useRouter()
-  const { data: today, isLoading, isError, error, refetch } = useTodayGame()
+  const { data: today, isLoading, isError, refetch } = useTodayGame()
   const charges = useCharges()
-  const { data: session, isPending: sessionPending } = authClient.useSession()
   const create = useCreateSession()
   const setSnapshot = useGameStore((s) => s.setSnapshot)
-  const [failed, setFailed] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     router.prefetch('/play/run')
   }, [router])
 
-  const canPlay = Boolean(session?.user && charges.data && !charges.isError && !isError && !create.isPending)
-  const hasCharge = charges.data?.remaining === null || (charges.data?.remaining ?? 0) > 0
+  const resume = charges.data?.resumableModes.includes('ranked') ?? false
+  const out = charges.data?.remaining === 0 && !resume
+  const canPlay = !create.isPending && !out
 
-  const play = async (mode: 'ranked' | 'practice') => {
-    setFailed(null)
+  const play = async () => {
+    setFailed(false)
     audio.unlock()
     track('play_cta_clicked', { game: today?.gameId ?? 'unknown' })
     try {
-      const snapshot = await create.mutateAsync({ mode })
+      const snapshot = await create.mutateAsync({ mode: 'ranked' })
       setSnapshot(snapshot)
       router.push('/play/run')
-    } catch (e) {
-      setFailed(getErrorMessage(e))
+    } catch (error) {
+      if (!(error instanceof Error && error.message === 'charges-empty')) setFailed(true)
     }
   }
 
   return (
     <div className="flex min-h-dvh flex-col bg-ink-950 text-ghost-text">
-      <Header />
+      
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-4 py-8">
         {isLoading && <p className="text-sm text-ghost-muted">Loading today&apos;s game…</p>}
         {isError && (
-          <div className="rounded-card border border-rival-coral/40 bg-ink-900 p-5 text-sm">
-            <p role="alert">{error.message}</p>
-            <button type="button" onClick={() => void refetch()} className="min-h-11 underline">Retry today’s game</button>
+          <div className="rounded-card border border-white/10 bg-ink-900 p-5 text-sm">
+            <p className="text-ghost-muted">Today&apos;s game took a moment to load.</p>
+            <button type="button" onClick={() => void refetch()} className="mt-2 min-h-11 underline">Try again</button>
           </div>
         )}
         {today && !isError && (
@@ -67,50 +65,46 @@ export function PreflightClient() {
               <GameIcon game={today.gameId} className="size-12" />
               <p className="mt-3 text-sm leading-6 text-ghost-muted">{today.instruction}</p>
               <ul className="mt-3 flex list-disc flex-col gap-2 pl-5 text-sm leading-6 text-ghost-muted">
-                <li>Free players get five combined ranked and practice charges per UTC day. A charge is reserved when you open a run.</li>
-                <li>One ranked attempt. Consumed on first input or 3s after start.</li>
-                <li>Closing or reloading after consumption still spends the attempt.</li>
-                <li>Score is decided by server replay, not your screen.</li>
-                <li>Practice is unranked. Ghost+ has unlimited practice. Challenge races are free.</li>
-                <li>Sound off by default. Reduced-motion respected. 44px targets.</li>
+                <li>Free players get five runs per UTC day. Ghost+ is unlimited.</li>
+                <li>A run starts after the countdown and counts when you touch the field.</li>
+                <li>Reloading or leaving after that point still uses the run.</li>
+                <li>The server replays your exact inputs to decide the score.</li>
+                <li>Every run races your best ghost on this game.</li>
+                <li>Sound off by default. Reduced motion respected. 44px targets.</li>
               </ul>
             </div>
-            <div className="rounded-card border border-white/10 bg-surface-800 p-4 text-sm" aria-live="polite">
-              {charges.data && !charges.isError ? (
-                <>
-                  <p>{charges.data.remaining === null ? 'Unlimited practice' : `${charges.data.remaining} of ${charges.data.limit} daily charges remaining`}</p>
-                  <p className="mt-1 text-ghost-muted">{charges.data.rankedAvailable ? 'One ranked attempt available.' : 'Ranked attempt spent. Keep playing in practice.'}</p>
-                  <p className="mt-1 text-ghost-muted">Charges reset at 00:00 UTC.</p>
-                </>
-              ) : charges.isError ? (
-                <>
-                  <p role="alert">{charges.error.message}</p>
-                  <button type="button" onClick={() => void charges.refetch()} className="min-h-11 underline">Retry daily charges</button>
-                </>
-              ) : <p>{sessionPending || session?.user ? 'Loading daily charges…' : 'Connecting your player session…'}</p>}
+            <div className="rounded-card border border-white/10 bg-surface-800 p-4">
+              <RunMeter remaining={charges.data?.remaining} limit={charges.data?.limit} />
+              <p className="text-ghost-muted mt-2 text-xs">
+                {charges.isError
+                  ? 'Charges refresh automatically before your run.'
+                  : charges.data?.limit === null
+                    ? 'Ghost+ is unlimited. Play as long as you like.'
+                    : resume
+                      ? 'You have an open run waiting.'
+                      : out
+                        ? 'You are out of runs until the reset. Ghost+ is unlimited.'
+                        : 'Charges reset at 00:00 UTC.'}
+              </p>
             </div>
-            {(failed ?? create.error) && (
-              <p role="alert" className="rounded-card border border-rival-coral/40 bg-ink-900 px-4 py-3 text-sm text-rival-coral">
-                {failed ?? (create.error instanceof Error ? create.error.message : 'session-failed')}
+            {out && (
+              <Link href="/ghost-plus" className="min-h-11 text-sm text-spectral-violet underline">
+                Get unlimited runs with Ghost+
+              </Link>
+            )}
+            {failed && (
+              <p role="status" className="text-ghost-muted text-sm">
+                Couldn&apos;t open the field. Try again.
               </p>
             )}
             <button
               type="button"
-              onClick={() => void play('ranked')}
-              disabled={!canPlay || (!hasCharge && !charges.data?.resumableModes.includes('ranked')) || !charges.data?.rankedAvailable}
+              onClick={() => void play()}
+              disabled={!canPlay}
               className="flex min-h-12 items-center justify-center rounded-control bg-spectral-cyan px-5 font-display text-sm font-800 tracking-[0.14em] text-ink-950 disabled:opacity-50"
             >
-              {create.isPending ? 'OPENING…' : charges.data?.resumableModes.includes('ranked') ? 'RESUME RANKED RUN' : 'START RANKED RUN'}
+              {create.isPending ? 'OPENING…' : resume ? 'RESUME RUN' : out ? 'NO RUNS LEFT' : 'START RUN'}
             </button>
-            <button
-              type="button"
-              onClick={() => void play('practice')}
-              disabled={!canPlay || (!hasCharge && !charges.data?.resumableModes.includes('practice'))}
-              className="flex min-h-12 items-center justify-center rounded-control border border-spectral-violet/50 px-5 font-display text-sm font-800 tracking-[0.14em] text-spectral-violet disabled:opacity-50"
-            >
-              {create.isPending ? 'OPENING…' : charges.data?.resumableModes.includes('practice') ? 'RESUME PRACTICE RUN' : 'START PRACTICE RUN'}
-            </button>
-            {charges.data?.remaining === 0 && <Link href="/ghost-plus" className="min-h-11 text-sm text-spectral-violet underline">Get unlimited practice with Ghost+</Link>}
           </>
         )}
         <Link

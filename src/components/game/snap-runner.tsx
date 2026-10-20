@@ -6,6 +6,7 @@ import type { TPublicGame } from '@/features/game/store/game-store'
 import { drawSkinAvatar } from '@/lib/game/skin-renderer'
 import { audio } from '@/lib/game/audio'
 import { gameplayLoop, drawFeedback, committedGhost } from '@/lib/game/gameplay-motion'
+import { PromptFlash } from '@/components/game/prompt-flash'
 import { createRng, hashSeed } from '@/games/core/rng'
 import { snapEngine, type TSnapConfig } from '@/games/snap/engine'
 
@@ -87,19 +88,25 @@ function drawShape(ctx: CanvasRenderingContext2D, shape: TShape, cx: number, cy:
   ctx.stroke()
 }
 
-export function SnapRunner({ game, session }: { game: TPublicGame; session: TRunSession }) {
+export function SnapRunner({ game, session, onReady }: { game: TPublicGame; session: TRunSession; onReady?: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
   const avatarRef = useRef<HTMLCanvasElement>(null)
   const verdictRef = useRef<TVerdict | null>(null)
   const autoRef = useRef(-1)
   const labelRef = useRef('')
+  const promptRef = useRef(-1)
   const [score, setScore] = useState(0)
   const [roundLabel, setRoundLabel] = useState('')
   const [roundsDone, setRoundsDone] = useState(0)
+  const [prompt, setPrompt] = useState<{ key: number; label: string } | null>(null)
   const config = useMemo(() => snapEngine.validateConfig(game.config) as TSnapConfig, [game.config])
   const durationMs = game.durationMs
   const layoutCache = useRef(new Map<string, { target: TShape; cells: TOption[] }>())
+
+  useEffect(() => {
+    onReady?.()
+  }, [onReady])
   const getLayout = useCallback(
     (roundIndex: number, options: number, correct: number, w: number, h: number) => {
       const key = `${roundIndex}:${Math.round(w)}x${Math.round(h)}`
@@ -160,7 +167,6 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
       let idx = session.eventsRef.current.length
       let missed = 0
       while (
-        session.phase === 'running' &&
         idx < config.rounds.length &&
         elapsed >= endFor(idx) &&
         autoRef.current < idx
@@ -175,6 +181,7 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
       if (missed > 0) {
         const res = snapEngine.scoreRun({ seed: game.seed, config, events: session.eventsRef.current, visibilityInterruptions: 0 })
         setScore(res.score)
+        session.reportScore(res.score)
         setRoundsDone(session.eventsRef.current.length)
         audio.miss()
       }
@@ -183,6 +190,10 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
       if (round && elapsed >= round.presentedMs && elapsed < endFor(idx)) {
         const { target, cells } = getLayout(idx, round.options, round.correct, cssW, cssH)
         setLabel(`TAP THE ${target.toUpperCase()}`)
+        if (promptRef.current !== idx) {
+          promptRef.current = idx
+          setPrompt({ key: idx, label: `TAP THE ${target.toUpperCase()}` })
+        }
         const spawn = Math.min(1, Math.max(0, (elapsed - round.presentedMs) / 70))
         for (const c of cells) {
           ctx2d.save()
@@ -257,7 +268,8 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
       stop()
       ro.disconnect()
     }
-  }, [config, durationMs, endFor, getLayout, game.seed, session])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- countdown ticks must not re-init the canvas
+  }, [config, durationMs, endFor, getLayout, game.seed, session.skin, session.reduced])
 
   const choose = (index: number) => {
     if (session.phase !== 'running') return
@@ -275,6 +287,7 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
     verdictRef.current = { t, ok, index, round: idx }
     const res = snapEngine.scoreRun({ seed: game.seed, config, events: session.eventsRef.current, visibilityInterruptions: 0 })
     setScore(res.score)
+    session.reportScore(res.score)
     setRoundsDone(session.eventsRef.current.length)
     if (ok) {
       const reaction = t - round.presentedMs
@@ -343,6 +356,7 @@ export function SnapRunner({ game, session }: { game: TPublicGame; session: TRun
           ))}
         </div>
       </div>
+      <PromptFlash key={prompt?.key ?? 'none'} label={prompt?.label ?? ''} />
       <canvas
         ref={canvasRef}
         role="application"

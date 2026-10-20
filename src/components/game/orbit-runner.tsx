@@ -34,11 +34,13 @@ type TVerdict = { band: number; at: number; angle: number; premature: boolean; m
 export function OrbitRunner({
   game,
   session,
+  onReady,
   rivalNotches = [],
   rivalScore = null
 }: {
   game: TPublicGame
   session: TRunSession
+  onReady?: () => void
   rivalNotches?: TRivalNotch[]
   rivalScore?: number | null
 }) {
@@ -51,6 +53,10 @@ export function OrbitRunner({
   const config = useMemo(() => orbitEngine.validateConfig(game.config) as TOrbitConfig, [game.config])
   const targets = config.targets
   const durationMs = game.durationMs
+
+  useEffect(() => {
+    onReady?.()
+  }, [onReady])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -177,7 +183,8 @@ export function OrbitRunner({
       stop()
       ro.disconnect()
     }
-  }, [durationMs, targets, session, rivalNotches])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- countdown ticks must not re-init the canvas
+  }, [durationMs, targets, rivalNotches, session.skin, session.reduced])
 
   const tap = (clientX?: number, clientY?: number) => {
     if (session.phase !== 'running') return
@@ -202,6 +209,7 @@ export function OrbitRunner({
     const events = session.eventsRef.current
     const res = orbitEngine.scoreRun({ seed: game.seed, config, events, visibilityInterruptions: 0 })
     setScore(res.score)
+    session.reportScore(res.score)
     setDone(res.metrics.hits as number)
     const last = events[events.length - 1] as Extract<GameInputEvent, { type: 'tap' }>
     const assigned = assignTaps(targets, events)
@@ -251,17 +259,17 @@ export function OrbitRunner({
         <span className="text-[10px] tracking-[0.16em] text-spectral-violet uppercase">
           {rivalScore !== null ? `Rival ${rivalScore}` : 'Tap inside the bright arc'}
         </span>
-        <span className="text-[10px] tracking-[0.16em] text-ghost-muted uppercase">Space taps at marker</span>
+        <span className="text-[10px] tracking-[0.16em] text-ghost-muted uppercase">Space taps where the marker is</span>
       </div>
       <canvas
         ref={canvasRef}
         role="application"
-        aria-label="Orbit field. Tap when the marker enters the bright arc. Space taps at the marker."
+        aria-label="Orbit field. Tap the bright arc when the marker crosses it, or press Space at the marker."
         style={{ opacity: session.phase === 'finishing' ? 0.6 : 1, transition: 'opacity 120ms linear' }}
         className="game-arena min-h-75 w-full flex-1 touch-none"
         onPointerDown={(e) => tap(e.clientX, e.clientY)}
       />
-      <p className="game-hint">Tap inside the arc · Space taps at the marker</p>
+      <p className="game-hint">Tap the bright arc when the marker crosses · Space taps at the marker</p>
     </div>
   )
 }

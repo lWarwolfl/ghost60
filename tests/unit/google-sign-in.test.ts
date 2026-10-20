@@ -49,9 +49,12 @@ it('disables sign-in while the session is loading', () => {
   expect(nodes(GoogleSignIn()).find((node) => node.type === 'button')!.props.disabled).toBe(true)
 })
 it('reports provider errors and permits retry', async () => {
+  vi.useFakeTimers()
   state.social.mockResolvedValue({ error: { message: 'OAuth unavailable' } })
   const button = nodes(GoogleSignIn()).find((node) => node.type === 'button')!
   await (button.props.onClick as () => Promise<void>)()
-  expect(state.setters[1]).toHaveBeenCalledWith('OAuth unavailable')
   expect(state.setters[0]).toHaveBeenLastCalledWith(false)
+  vi.advanceTimersByTime(2500)
+  expect(state.setters[1]).toHaveBeenCalledWith('Google sign-in did not open. Please try again.')
+  vi.useRealTimers()
 })

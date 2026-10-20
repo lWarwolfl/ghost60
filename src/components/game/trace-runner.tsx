@@ -37,11 +37,13 @@ const CURSOR_STEP = 250
 export function TraceRunner({
   game,
   session,
+  onReady,
   rivalPath = [],
   rivalScore = null
 }: {
   game: TPublicGame
   session: TRunSession
+  onReady?: () => void
   rivalPath?: TRivalPoint[]
   rivalScore?: number | null
 }) {
@@ -60,6 +62,10 @@ export function TraceRunner({
   const config = useMemo(() => traceEngine.validateConfig(game.config) as TTraceConfig, [game.config])
   const durationMs = game.durationMs
   const gates = config.gates
+
+  useEffect(() => {
+    onReady?.()
+  }, [onReady])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -180,7 +186,8 @@ export function TraceRunner({
       stop()
       ro.disconnect()
     }
-  }, [config, durationMs, gates, session, rivalPath])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- countdown ticks must not re-init the canvas
+  }, [config, durationMs, gates, rivalPath, session.skin, session.reduced])
 
   const toBoard = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current!
@@ -193,6 +200,7 @@ export function TraceRunner({
   const scoreNow = () => {
     const res = traceEngine.scoreRun({ seed: game.seed, config, events: session.eventsRef.current, visibilityInterruptions: 0 })
     setScore(res.score)
+    session.reportScore(res.score)
     feedbackRef.current = { count: session.eventsRef.current.length, data: traceFeedback(config, session.eventsRef.current) }
     return res.score
   }

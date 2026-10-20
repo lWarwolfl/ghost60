@@ -1,11 +1,10 @@
 import Link from 'next/link'
 import { Footer } from '@/components/layout/footer'
-import { Header } from '@/components/layout/header'
 
 export default function PrivacyPage() {
   return (
     <div className="bg-ink-950 text-ghost-text flex min-h-dvh flex-col">
-      <Header />
+      
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-8 sm:max-w-2xl">
         <p className="text-spectral-cyan text-[11px] tracking-[0.18em] uppercase">Legal</p>
         <h1 className="font-display font-800 text-3xl">Privacy</h1>

@@ -34,36 +34,36 @@ const session = (overrides: Partial<TRunSession> = {}): TRunSession => ({
 })
 
 describe('daily charges', () => {
-  it('reserves five combined starts and excludes challenges', () => {
-    const sessions = ['ranked', 'practice', 'past_self', 'practice', 'practice', 'challenge'].map((mode) => session({ mode }))
+  it('reserves five daily starts and excludes challenges', () => {
+    const sessions = ['ranked', 'ranked', 'special', 'ranked', 'ranked', 'challenge'].map((mode) => session({ mode }))
     expect(chargeSnapshot(sessions, 'free', now)).toEqual({
-      limit: 5, used: 5, remaining: 0, resetAt: '2026-10-19T00:00:00.000Z', rankedAvailable: true, resumableModes: ['ranked', 'practice', 'past_self', 'challenge'], plan: 'free'
+      limit: 5, used: 5, remaining: 0, resetAt: '2026-10-19T00:00:00.000Z', rankedAvailable: false, resumableModes: ['ranked', 'special', 'challenge'], plan: 'free'
     })
   })
   it('counts abandoned consumed runs even when expired or cancelled', () => {
-    const sessions = ['cancelled', 'expired', 'consumed'].map((state) => session({ state, consumedAt: now, expiresAt: new Date(0) }))
+    const sessions = ['cancelled', 'expired', 'consumed'].map((state) => session({ mode: 'ranked', state, consumedAt: now, expiresAt: new Date(0) }))
     expect(chargeSnapshot(sessions, 'free', now).used).toBe(3)
   })
   it('releases expired and cancelled unconsumed reservations without charging retries twice', () => {
-    const sessions = [session({ state: 'cancelled' }), session({ expiresAt: now }), session({ state: 'expired' }), session({ technicalRetryOf: 'cancelled' })]
+    const sessions = [session({ mode: 'ranked', state: 'cancelled' }), session({ mode: 'ranked', expiresAt: now }), session({ mode: 'ranked', state: 'expired' }), session({ mode: 'ranked', technicalRetryOf: 'cancelled' })]
     expect(chargeSnapshot(sessions, 'free', now).used).toBe(1)
   })
   it('rolls over at UTC midnight using startedAt rather than consumedAt', () => {
     const sessions = [session({ consumedAt: new Date('2026-10-19T00:00:00Z') })]
     expect(chargeSnapshot(sessions, 'free', new Date('2026-10-19T00:00:00Z'))).toMatchObject({ used: 0, remaining: 5, resetAt: '2026-10-20T00:00:00.000Z' })
   })
-  it('keeps a consumed ranked attempt spent after its expiry', () => {
-    expect(chargeSnapshot([session({ mode: 'ranked', consumedAt: now, state: 'expired', expiresAt: new Date(0) })], 'free', now).rankedAvailable).toBe(false)
+  it('counts a consumed run after its expiry and leaves the other four', () => {
+    expect(chargeSnapshot([session({ mode: 'ranked', consumedAt: now, state: 'expired', expiresAt: new Date(0) })], 'free', now)).toMatchObject({ used: 1, remaining: 4, rankedAvailable: true })
   })
   it('advertises reservation resume at zero without exposing a consumed restart', () => {
-    const sessions = [session({ mode: 'ranked' }), ...Array.from({ length: 4 }, () => session({ consumedAt: now }))]
+    const sessions = [session({ mode: 'ranked' }), ...Array.from({ length: 4 }, () => session({ mode: 'ranked', consumedAt: now }))]
     expect(chargeSnapshot(sessions, 'free', now)).toMatchObject({ remaining: 0, resumableModes: ['ranked'] })
   })
   it('keeps challenge-backed ranked reservations free', () => {
     expect(chargeSnapshot([session({ mode: 'ranked', challengeId: 'challenge' })], 'free', now)).toMatchObject({ used: 0, remaining: 5 })
   })
   it('exposes paid unlimited without increasing ranked attempts', () => {
-    expect(chargeSnapshot([session({ mode: 'ranked', consumedAt: now })], 'ghost_plus', now)).toMatchObject({ limit: null, remaining: null, used: 1, rankedAvailable: false, plan: 'ghost_plus' })
+    expect(chargeSnapshot([session({ mode: 'ranked', consumedAt: now })], 'ghost_plus', now)).toMatchObject({ limit: null, remaining: null, used: 1, rankedAvailable: true, plan: 'ghost_plus' })
   })
 })
 
@@ -93,8 +93,8 @@ describe('session charge enforcement', () => {
     })
     insert.mockImplementation((values) => { sessions.push(values); return Promise.resolve() })
   }
-  const request = (mode = 'practice') => new Request('https://ghost.test/api/game/session', { method: 'POST', body: JSON.stringify({ mode }) })
-  const spent = (mode = 'practice') => session({ startedAt: new Date(), consumedAt: new Date(), mode })
+  const request = (mode = 'ranked') => new Request('https://ghost.test/api/game/session', { method: 'POST', body: JSON.stringify({ mode }) })
+  const spent = (mode = 'ranked') => session({ startedAt: new Date(), consumedAt: new Date(), mode })
 
   it('serializes submit against reservation replacement', async () => {
     setup([session({ state: 'submitted', startedAt: new Date() })])
@@ -116,7 +116,7 @@ describe('session charge enforcement', () => {
   })
   it('never recreates an active unconsumed session on request retry', async () => {
     const startedAt = new Date()
-    setup([session({ id: 'existing', startedAt, expiresAt: new Date(Date.now() + 10000) })])
+    setup([session({ id: 'existing', mode: 'ranked', startedAt, expiresAt: new Date(Date.now() + 10000) })])
     const response = await POST(request())
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({ sessionId: 'existing', resumed: true })
@@ -135,11 +135,11 @@ describe('session charge enforcement', () => {
     expect((await POST(request())).status).toBe(200)
     expect(insert).toHaveBeenCalledOnce()
   })
-  it('never restores a consumed ranked attempt after expiry', async () => {
+  it('opens a fresh ranked run after a consumed attempt expires', async () => {
     setup([session({ startedAt: new Date(), mode: 'ranked', consumedAt: new Date(), state: 'expired', expiresAt: new Date(0) })])
     const response = await POST(request('ranked'))
-    expect(response.status).toBe(409)
-    expect(await response.json()).toMatchObject({ error: 'ranked-used' })
+    expect(response.status).toBe(200)
+    expect(insert).toHaveBeenCalledOnce()
   })
   it('allows unlimited paid practice', async () => {
     setup(Array.from({ length: 8 }, () => spent()), true)

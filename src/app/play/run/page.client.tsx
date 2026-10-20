@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { GhostAvatar } from '@/components/brand/ghost-avatar'
+import { GhostRace } from '@/components/game/ghost-race'
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion.hook'
 import { ShareButtons } from '@/components/results/share-buttons'
 import { SkinCardFrame } from '@/components/game/skin-card-frame'
@@ -88,12 +89,10 @@ function ResultPanel({
   snapshot,
   events,
   result,
-  onRetry,
 }: {
   snapshot: TGameSnapshot
   events: GameInputEvent[]
   result: TRunResult
-  onRetry?: () => void
 }) {
   const router = useRouter()
   const { clear } = useGameStore()
@@ -108,8 +107,8 @@ function ResultPanel({
     try {
       const next = await createSession.mutateAsync({ mode: 'practice', dailyGameId })
       setSnapshot({ ...next, playlist })
-    } catch (error) {
-      setChallengeError(error instanceof Error ? error.message : 'session-failed')
+    } catch {
+      setChallengeError('Couldn’t open the next game. Try again.')
     }
   }
   const { data: profile } = useProfile()
@@ -166,24 +165,20 @@ function ResultPanel({
     try {
       const created = await createChallenge.mutateAsync(result.runId)
       setSharedUrl(created.url)
-    } catch (e) {
-      setChallengeError(e instanceof Error ? e.message : 'challenge-failed')
+    } catch {
+      setChallengeError('Couldn’t create the challenge. Try again.')
     }
   }
   const delta = challenge ? score - challenge.targetScore : 0
-  const outcomeTitle = result.provisional
-    ? challenge
-      ? 'RACE SYNCING…'
-      : null
-    : !challenge
-      ? null
-      : result.outcome === 'win'
-        ? 'YOU CAUGHT IT.'
-        : result.outcome === 'loss'
-          ? 'IT GOT AWAY.'
-          : result.outcome === 'tie'
-            ? 'DEAD HEAT.'
-            : 'RUN REJECTED'
+  const outcomeTitle = !challenge
+    ? null
+    : result.outcome === 'win'
+      ? 'YOU CAUGHT IT.'
+      : result.outcome === 'loss'
+        ? 'IT GOT AWAY.'
+        : result.outcome === 'tie'
+          ? 'DEAD HEAT.'
+          : 'RUN REJECTED'
   return (
     <SkinCardFrame
       skin={cardSkin}
@@ -202,15 +197,8 @@ function ResultPanel({
           </p>
         </>
       ) : (
-        <p
-          className={`text-[11px] tracking-[0.18em] uppercase ${result.syncError ? 'text-rival-coral' : 'text-spectral-cyan'}`}
-          role="status"
-        >
-          {result.provisional
-            ? result.syncError
-              ? 'Local run · not synced'
-              : 'Saved locally · syncing…'
-            : 'Server validated'}
+        <p className="text-spectral-cyan text-[11px] tracking-[0.18em] uppercase" role="status">
+          Run complete
         </p>
       )}
       <GhostAvatar
@@ -226,7 +214,7 @@ function ResultPanel({
       />
       <p
         ref={scoreDisplay}
-        aria-label={`${result.provisional ? 'Local' : 'Validated'} score ${score}`}
+        aria-label={`Score ${score}`}
         className="tnum font-display font-800 text-6xl"
       >
         {score}
@@ -235,29 +223,10 @@ function ResultPanel({
         <p className="rounded-control border-signal-lime/60 font-display font-800 text-signal-lime border px-3 py-1 text-xs tracking-[0.18em]">
           NEW PERSONAL BEST
         </p>
-      ) : result.isLocalBest && result.provisional ? (
-        <p className="rounded-control font-display font-800 text-signal-lime/80 border border-signal-lime/30 px-3 py-1 text-xs tracking-[0.18em]">
-          LOCAL BEST
-        </p>
       ) : null}
+      {!result.valid && <p className="text-ghost-muted text-xs">This run didn’t count.</p>}
       {result.xpAwarded > 0 && (
         <p className="tnum text-ghost-muted text-xs">+{result.xpAwarded} XP</p>
-      )}
-      {result.provisional && (
-        <p className="text-ghost-muted max-w-xs text-xs leading-5">
-          {result.syncError
-            ? `Saved on this device. ${result.syncError === 'offline' ? 'It will sync when you are back online.' : result.syncError}`
-            : 'Your run is safe on this device. The server confirms it in the background.'}
-        </p>
-      )}
-      {result.provisional && onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="rounded-control min-h-10 border border-white/15 px-4 text-xs font-600"
-        >
-          RETRY SYNC
-        </button>
       )}
       {challenge && (
         <p className="tnum text-ghost-muted text-sm">
@@ -280,7 +249,7 @@ function ResultPanel({
         onClick={() => leave('/play')}
         className="rounded-control font-600 flex min-h-12 w-full items-center justify-center border border-white/15 px-5 text-sm"
       >
-        PLAY AGAIN · PRACTICE
+        PLAY AGAIN
       </button>
       {challengeError && (
         <p role="alert" className="text-rival-coral text-xs">
@@ -307,11 +276,9 @@ function ResultPanel({
           >
             {createChallenge.isPending
               ? 'WORKING…'
-              : result.provisional
-                ? 'SYNCING GHOST…'
-                : challenge
-                  ? 'SEND REVENGE'
-                  : 'RACE MY GHOST'}
+              : challenge
+                ? 'SEND REVENGE'
+                : 'RACE MY GHOST'}
           </button>
           <button
             type="button"
@@ -329,7 +296,13 @@ function ResultPanel({
 function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
   const router = useRouter()
   const { clear } = useGameStore()
-  const session = useRunSession(snapshot.game, snapshot.token)
+  const [runnerReady, setRunnerReady] = useState(false)
+  const session = useRunSession(snapshot.game, snapshot.token, runnerReady)
+
+  useEffect(() => {
+    const fallback = setTimeout(() => setRunnerReady(true), 6000)
+    return () => clearTimeout(fallback)
+  }, [])
 
   if (session.phase === 'result' && session.result) {
     return (
@@ -337,15 +310,16 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
         snapshot={snapshot}
         events={session.eventsRef.current}
         result={session.result}
-        onRetry={() => void session.retryPending()}
       />
     )
   }
   if (session.phase === 'error') {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-        <p className="font-display font-800 text-xl">Could not submit</p>
-        <p className="text-rival-coral text-sm">{session.error ?? 'submit-failed'}</p>
+        <p className="font-display font-800 text-xl">This run is closed</p>
+        <p className="text-ghost-muted max-w-xs text-sm">
+          It was already started on this device. Start a fresh run from the field.
+        </p>
         <button
           type="button"
           onClick={() => {
@@ -382,32 +356,37 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
   }
   return (
     <div className="relative flex flex-1 flex-col">
+      <GhostRace session={session} ghost={snapshot.ghost} />
       {snapshot.game.gameId === 'pulse' ? (
-        <PulseRunner game={snapshot.game} session={session} />
+        <PulseRunner game={snapshot.game} session={session} onReady={() => setRunnerReady(true)} />
       ) : snapshot.game.gameId === 'snap' ? (
-        <SnapRunner game={snapshot.game} session={session} />
+        <SnapRunner game={snapshot.game} session={session} onReady={() => setRunnerReady(true)} />
       ) : snapshot.game.gameId === 'orbit' ? (
         <OrbitRunner
           game={snapshot.game}
           session={session}
+          onReady={() => setRunnerReady(true)}
           rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
         />
       ) : snapshot.game.gameId === 'recall' ? (
         <RecallRunner
           game={snapshot.game}
           session={session}
+          onReady={() => setRunnerReady(true)}
           rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
         />
       ) : snapshot.game.gameId === 'shift' ? (
         <ShiftRunner
           game={snapshot.game}
           session={session}
+          onReady={() => setRunnerReady(true)}
           rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
         />
       ) : (
         <TraceRunner
           game={snapshot.game}
           session={session}
+          onReady={() => setRunnerReady(true)}
           rivalScore={snapshot.challenge ? snapshot.challenge.targetScore : null}
         />
       )}

@@ -1,5 +1,5 @@
 import { relations, sql } from 'drizzle-orm'
-import { bigint, boolean, check, date, index, integer, jsonb, pgTable, primaryKey, smallint, text, timestamp, unique, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
+import { bigint, boolean, check, date, index, integer, jsonb, pgTable, primaryKey, smallint, text, timestamp, unique, uuid, varchar } from 'drizzle-orm/pg-core'
 
 export const User = pgTable('user', {
   id: text('id').primaryKey(),
@@ -109,6 +109,8 @@ export const DailyGame = pgTable('daily_games', {
   difficulty: smallint('difficulty').notNull(),
   seasonId: uuid('season_id').references(() => Season.id),
   status: text('status').default('scheduled').notNull(),
+  kind: text('kind').default('daily').notNull(),
+  endsAt: timestamp('ends_at', { withTimezone: true }),
   publishAt: timestamp('publish_at', { withTimezone: true }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
 })
@@ -157,9 +159,6 @@ export const Run = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
   },
   (t) => [
-    uniqueIndex('runs_one_valid_ranked_per_day')
-      .on(t.userId, t.dailyGameId)
-      .where(sql`${t.mode} = 'ranked' AND ${t.valid} = true`),
     index('runs_daily_score_idx').on(t.dailyGameId, t.validatedScore.desc()),
     index('runs_user_history_idx').on(t.userId, t.createdAt.desc())
   ]

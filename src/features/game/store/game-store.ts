@@ -21,6 +21,11 @@ export type TGameSnapshot = {
     targetScore: number
     ghost: import('@/games/core/game-module').SanitizedGhost
   } | null
+  ghost?: {
+    handle: string
+    targetScore: number
+    ghost: import('@/games/core/game-module').SanitizedGhost
+  } | null
   token: string
   sessionId: string
   expiresAt: string

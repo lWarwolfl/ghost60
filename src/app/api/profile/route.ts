@@ -2,14 +2,17 @@ import { desc, eq, inArray } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { db } from '@/drizzle'
 import {
-  Achievement,
+  Challenge,
+  ChallengeAttempt,
   DailyGame,
+  LeagueMember,
   PlayerProfile,
   Run,
   Streak,
   UserAchievement,
   XpLedger
 } from '@/drizzle/schema'
+import achievementCatalog from '../../../../content/achievements.json'
 import { getCurrentUser } from '@/lib/auth/server'
 import { getPlan } from '@/lib/game/entitlement'
 import { levelForXp } from '@/lib/game/progression'
@@ -28,18 +31,12 @@ export async function GET() {
   const ledger = await db.select({ amount: XpLedger.amount }).from(XpLedger).where(eq(XpLedger.userId, user.id))
   const xpTotal = ledger.reduce((s, r) => s + r.amount, 0)
   const owned = await db.select().from(UserAchievement).where(eq(UserAchievement.userId, user.id))
-  const defs =
-    owned.length > 0
-      ? await db
-          .select()
-          .from(Achievement)
-          .where(
-            inArray(
-              Achievement.id,
-              owned.map((o) => o.achievementId)
-            )
-          )
-      : []
+  const attempts = await db
+    .select({ challengeId: ChallengeAttempt.challengeId, outcome: ChallengeAttempt.outcome, createdAt: ChallengeAttempt.createdAt })
+    .from(ChallengeAttempt)
+    .where(eq(ChallengeAttempt.recipientUserId, user.id))
+  const sent = await db.select({ id: Challenge.id }).from(Challenge).where(eq(Challenge.creatorUserId, user.id))
+  const memberships = await db.select({ leagueId: LeagueMember.leagueId }).from(LeagueMember).where(eq(LeagueMember.userId, user.id))
   const runs = await db
     .select()
     .from(Run)
@@ -69,6 +66,42 @@ export async function GET() {
           return date !== null && date >= weekStart
         })
   const catalog = loadSkinCatalog()
+  const ownedIds = new Set(owned.map((o) => o.achievementId))
+  const sentIds = new Set(sent.map((challenge) => challenge.id))
+  const sentCompleted = attempts.filter((attempt) => sentIds.has(attempt.challengeId)).length
+  const winsByDay = new Map<string, number>()
+  for (const attempt of attempts) {
+    if (attempt.outcome !== 'win') continue
+    const day = attempt.createdAt.toISOString().slice(0, 10)
+    winsByDay.set(day, (winsByDay.get(day) ?? 0) + 1)
+  }
+  const engines = new Set(
+    runs.filter((run) => run.valid).map((run) => gameById.get(run.dailyGameId)?.gameId).filter(Boolean)
+  )
+  const validRuns = runs.filter((run) => run.valid).length
+  const metricValue = (metric: string) => {
+    switch (metric) {
+      case 'validRuns':
+        return validRuns
+      case 'engines':
+        return engines.size
+      case 'streak':
+        return streaks[0]?.currentCount ?? 0
+      case 'challengesReceived':
+        return attempts.length
+      case 'challengesSentCompleted':
+        return sentCompleted
+      case 'challengeWinsInDay':
+        return Math.max(0, ...winsByDay.values())
+      case 'leagueRounds':
+        return memberships.length > 0 ? 1 : 0
+      case 'photoFinish':
+      case 'pastSelfWins':
+        return ownedIds.has(metric === 'photoFinish' ? 'photo_finish' : 'personal_haunting') ? 1 : 0
+      default:
+        return 0
+    }
+  }
   return NextResponse.json({
     plan,
     profile: profiles[0] ? { ...profiles[0], activeGhostSkin: resolveSkin(profiles[0].activeGhostSkin, plan).id, activeCardSkin: resolveSkin(profiles[0].activeCardSkin, plan).id } : null,
@@ -83,9 +116,16 @@ export async function GET() {
       },
       catalog: catalog.skins.map((s) => ({ ...s, unlocked: canEquip(plan, s.id), gradient: s.avatar.gradient }))
     },
-    achievements: owned.map((o) => ({
-      ...o,
-      detail: defs.find((d) => d.id === o.achievementId) ?? null
+    achievements: achievementCatalog.map((achievement) => ({
+      achievementId: achievement.id,
+      unlocked: ownedIds.has(achievement.id),
+      progress: Math.min(achievement.target, metricValue(achievement.metric)),
+      target: achievement.target,
+      detail: {
+        title: achievement.title,
+        description: achievement.description,
+        icon: achievement.icon
+      }
     })),
     recentRuns: visibleRuns.map((r) => ({
       id: r.id,

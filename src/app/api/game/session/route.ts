@@ -8,9 +8,31 @@ import { getCurrentUser } from '@/lib/auth/server'
 import { getTodayDailyGame } from '@/lib/game/daily'
 import { lockedResponse } from '@/lib/game/entitlement'
 import { getCharges } from '@/lib/game/charges'
+import { currentSpecialGame, devGame } from '@/lib/game/studio'
 import { RATE_LIMITS, checkRateLimit, rateLimitedResponse } from '@/lib/game/rate-limit'
 import { hashToken, signSessionToken } from '@/lib/game/token'
+import { createRng } from '@/games/core/rng'
+import type { GameInputEvent, SanitizedGhost } from '@/games/core/game-module'
 import { getGame } from '@/games/registry'
+
+type TGhostView = { handle: string; targetScore: number; ghost: SanitizedGhost }
+
+function raceGhost(game: TDailyGame, config: unknown, source?: { eventStream: unknown; validatedScore: number }): TGhostView | null {
+  try {
+    const mod = getGame(game.gameId as 'pulse')
+    let events = source?.eventStream as GameInputEvent[] | undefined
+    if (!events?.length) {
+      if (typeof mod.simulate !== 'function') return null
+      events = mod.simulate({ seed: game.seed, config: config as never, skill: 0.7, rng: createRng(`${game.seed}:ghost`) })
+    }
+    if (!events?.length) return null
+    const targetScore = source?.validatedScore ?? mod.scoreRun({ seed: game.seed, config: config as never, events, visibilityInterruptions: 0 }).score
+    const ghost = mod.sanitizeGhost({ seed: game.seed, config: config as never, events: events as never, score: targetScore })
+    return { handle: source ? 'YOUR GHOST' : 'SPECTER', targetScore, ghost }
+  } catch {
+    return null
+  }
+}
 
 function rankedExpiry(): Date {
   const now = new Date()
@@ -45,9 +67,8 @@ export async function POST(req: Request) {
   }
   const parsed = SessionRequestSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: 'bad-request' }, { status: 400 })
-  const { dailyGameId: requestedDailyId, sourceRunId } = parsed.data
-  let { challengeId } = parsed.data
-  let mode = parsed.data.mode
+  const { dailyGameId: requestedDailyId, sourceRunId, engine, challengeId } = parsed.data
+  const mode = parsed.data.mode
 
 
   let game: TDailyGame | null = null
@@ -76,6 +97,15 @@ export async function POST(req: Request) {
     game = (await db.select().from(DailyGame).where(eq(DailyGame.id, source.dailyGameId)))[0] ?? null
   } else if (mode === 'practice' && requestedDailyId) {
     game = (await db.select().from(DailyGame).where(eq(DailyGame.id, requestedDailyId)))[0] ?? null
+  } else if (mode === 'special') {
+    const special = await currentSpecialGame()
+    game = special.game
+    if (!special.game || (special.game.endsAt && special.game.endsAt.getTime() <= Date.now())) {
+      return NextResponse.json({ error: 'special-ended' }, { status: 410 })
+    }
+  } else if (mode === 'dev') {
+    if (process.env.NODE_ENV === 'production') return NextResponse.json({ error: 'dev-disabled' }, { status: 403 })
+    game = await devGame(engine ?? 'pulse')
   } else {
     game = await getTodayDailyGame()
     if (!game) return NextResponse.json({ error: 'no-game-today' }, { status: 409 })
@@ -90,6 +120,9 @@ export async function POST(req: Request) {
   if ((requestedDailyId || mode === 'past_self') && game && (game.gameDate > new Date(now).toISOString().slice(0, 10) || game.publishAt > new Date(now) || !['scheduled', 'live', 'completed'].includes(game.status))) {
     return NextResponse.json({ error: 'game-unavailable' }, { status: 410 })
   }
+  if (game?.kind === 'special' && game.endsAt && game.endsAt.getTime() <= now) {
+    return NextResponse.json({ error: 'special-ended' }, { status: 410 })
+  }
   if (challengeId) {
     const current = (await tx.select().from(Challenge).where(eq(Challenge.id, challengeId)))[0]
     if (!current || current.disabledAt || current.expiresAt.getTime() <= now) return NextResponse.json({ error: 'challenge-unavailable' }, { status: 410 })
@@ -98,24 +131,7 @@ export async function POST(req: Request) {
   }
   if (mode === 'challenge' && challengeDailyId) {
     const daily = (await tx.select().from(DailyGame).where(eq(DailyGame.id, challengeDailyId)))[0]
-    if (daily?.gameDate === new Date(now).toISOString().slice(0, 10)) {
-      const rankedRuns = await tx.select({ id: Run.id }).from(Run).where(and(eq(Run.userId, user.id), eq(Run.dailyGameId, challengeDailyId), eq(Run.mode, 'ranked')))
-      const rankedSessions = await tx.select().from(RunSession).where(and(eq(RunSession.userId, user.id), eq(RunSession.dailyGameId, challengeDailyId), eq(RunSession.mode, 'ranked')))
-      if (rankedSessions.some((session) => session.challengeId === challengeId && !session.consumedAt && session.state === 'created' && session.expiresAt.getTime() > now) || (!rankedRuns.length && !rankedSessions.some((session) => session.consumedAt || session.state === 'submitted' || (session.technicalRetryOf && session.expiresAt.getTime() <= now) || (session.state !== 'cancelled' && session.state !== 'expired' && session.expiresAt.getTime() > now)))) {
-        mode = 'ranked'
-        game = daily
-      }
-    }
-  }
-
-  if (mode === 'ranked' && game) {
-    const existing = await tx
-      .select({ id: Run.id })
-      .from(Run)
-      .where(
-        and(eq(Run.userId, user.id), eq(Run.dailyGameId, game.id), eq(Run.mode, 'ranked'), eq(Run.valid, true))
-      )
-    if (existing.length > 0) return NextResponse.json({ error: 'ranked-used' }, { status: 409 })
+    if (daily) game = daily
   }
 
   const dailyGameId = mode === 'challenge' ? (challengeDailyId as string) : game?.id
@@ -135,10 +151,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'bad-game-config' }, { status: 500 })
   }
   if (targetGame.gameDate > new Date(now).toISOString().slice(0, 10) || targetGame.publishAt > new Date(now) || !['scheduled', 'live', 'completed'].includes(targetGame.status)) return NextResponse.json({ error: 'game-unavailable' }, { status: 410 })
-  if (mode === 'ranked' && !challengeId) {
-    const pending = await tx.select().from(RunSession).where(and(eq(RunSession.userId, user.id), eq(RunSession.dailyGameId, dailyGameId), eq(RunSession.mode, 'ranked')))
-    challengeId = pending.find((s) => !s.consumedAt && !['submitted', 'cancelled', 'expired'].includes(s.state))?.challengeId ?? undefined
-  }
   let challenge: { id: string; slug: string; handle: string; targetScore: number; ghost?: import('@/games/core/game-module').SanitizedGhost } | null = null
   if (challengeId) {
     const ch = (await tx.select().from(Challenge).where(eq(Challenge.id, challengeId as string)))[0]
@@ -159,14 +171,23 @@ export async function POST(req: Request) {
     const mod = getGame(targetGame.gameId as 'pulse')
     pastSelf = { runId: source.id, targetScore: source.validatedScore, ghost: mod.sanitizeGhost({ seed: targetGame.seed, config: config as never, events: source.eventStream as never, score: source.validatedScore }) }
   }
+  let ghost: TGhostView | null = null
+  if (challenge?.ghost) ghost = { handle: challenge.handle, targetScore: challenge.targetScore, ghost: challenge.ghost }
+  else if (pastSelf) ghost = { handle: 'YOUR GHOST', targetScore: pastSelf.targetScore, ghost: pastSelf.ghost }
+  else if (mode !== 'challenge') {
+    const prior = await tx.select().from(Run).where(and(eq(Run.userId, user.id), eq(Run.dailyGameId, dailyGameId), eq(Run.valid, true)))
+    const source = prior
+      .filter((run) => Array.isArray(run.eventStream) && (run.eventStream as unknown[]).length > 0)
+      .sort((a, b) => b.validatedScore - a.validatedScore)[0]
+    ghost = raceGhost(targetGame, config, source)
+  }
+  if (!ghost) ghost = raceGhost(targetGame, config)
   const open = await tx
     .select()
     .from(RunSession)
     .where(and(eq(RunSession.userId, user.id), eq(RunSession.dailyGameId, dailyGameId), eq(RunSession.mode, mode), mode === 'challenge' ? eq(RunSession.challengeId, challengeId as string) : undefined))
   for (const s of open) {
     if (mode === 'past_self' && (s.metadata as { sourceRunId?: string }).sourceRunId !== sourceRunId) continue
-    if (mode === 'ranked' && (s.consumedAt || s.state === 'submitted')) return NextResponse.json({ error: 'ranked-used' }, { status: 409 })
-    if (mode === 'ranked' && s.technicalRetryOf && (s.state === 'expired' || s.expiresAt.getTime() <= now)) return NextResponse.json({ error: 'ranked-used' }, { status: 409 })
     if (s.consumedAt || s.state === 'submitted' || s.state === 'cancelled') continue
     if (s.state !== 'expired' && s.expiresAt.getTime() > now) {
       const token = signSessionToken({
@@ -174,7 +195,7 @@ export async function POST(req: Request) {
         challengeId: s.challengeId, engineVersion: targetGame.engineVersion,
         issuedAt: (s.metadata as { issuedAt?: number }).issuedAt ?? s.startedAt.getTime(), expiresAt: s.expiresAt.getTime()
       })
-      return NextResponse.json({ token, sessionId: s.id, mode, expiresAt: s.expiresAt.toISOString(), resumed: true, challenge, pastSelf, game: publicGame(targetGame, config, durationMs) })
+      return NextResponse.json({ token, sessionId: s.id, mode, expiresAt: s.expiresAt.toISOString(), resumed: true, challenge, pastSelf, ghost, game: publicGame(targetGame, config, durationMs) })
     }
     if (!s.consumedAt && !s.technicalRetryOf) {
       await tx.update(RunSession).set({ state: 'cancelled' }).where(eq(RunSession.id, s.id))
@@ -211,13 +232,14 @@ export async function POST(req: Request) {
         mode,
         challenge,
         pastSelf,
+        ghost,
         game: publicGame(targetGame, config, durationMs)
       })
     }
     await tx.update(RunSession).set({ state: 'expired' }).where(eq(RunSession.id, s.id))
   }
 
-  if (!challengeId && charges.remaining === 0) return NextResponse.json({ error: 'charges-empty', ...charges }, { status: 403 })
+  if (!challengeId && ['ranked', 'special'].includes(mode) && charges.remaining === 0) return NextResponse.json({ error: 'charges-empty', ...charges }, { status: 403 })
 
   const sessionId = randomUUID()
   const expiresAt =
@@ -244,6 +266,6 @@ export async function POST(req: Request) {
     expiresAt,
     metadata: { issuedAt: now, ...(sourceRunId ? { sourceRunId } : {}) }
   })
-  return NextResponse.json({ token, sessionId, mode, expiresAt: expiresAt.toISOString(), challenge, pastSelf, game: publicGame(targetGame, config, durationMs) })
+  return NextResponse.json({ token, sessionId, mode, expiresAt: expiresAt.toISOString(), challenge, pastSelf, ghost, game: publicGame(targetGame, config, durationMs) })
   })
 }

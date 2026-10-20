@@ -19,9 +19,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL ?? process.env.BETTER_AUTH_URL ?? 'http://localhost:3104'
   ),
-  title: 'Ghost60 — One minute. One run.',
+  title: 'Ghost60 — Five runs. One ghost.',
   description:
-    'Everyone gets the same game. You get one ranked attempt. Leave a ghost. Send it to a friend.',
+    'Everyone gets the same game. Five runs a day free, unlimited with Ghost+. Every run races your best ghost.',
   applicationName: 'Ghost60',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Ghost60' },
   icons: { icon: '/icons/icon-192.png', apple: '/icons/apple-touch-icon.png' },

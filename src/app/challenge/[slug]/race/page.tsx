@@ -4,7 +4,6 @@ import { notFound } from 'next/navigation'
 import { db } from '@/drizzle'
 import { Challenge, DailyGame, PlayerProfile, Run, type TChallenge } from '@/drizzle/schema'
 import { Footer } from '@/components/layout/footer'
-import { Header } from '@/components/layout/header'
 import { RaceClient } from '@/app/challenge/[slug]/race/page.client'
 
 export const dynamic = 'force-dynamic'
@@ -27,7 +26,7 @@ export default async function RacePage({ params }: { params: Promise<{ slug: str
 
   return (
     <div className="flex min-h-dvh flex-col bg-ink-950 text-ghost-text">
-      <Header />
+      
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-4 py-8">
         <div className="flex flex-col gap-1">
           <p className="text-[11px] uppercase tracking-[0.18em] text-spectral-violet">

@@ -44,6 +44,16 @@ export function committedGhost<T extends { t: number }>(timeline: readonly T[], 
   return timeline.filter((point, i) => Number.isFinite(point.t) && point.t >= 0 && point.t <= elapsed && commitments[i] !== null && commitments[i] !== undefined && commitments[i]! <= elapsed)
 }
 
+export function ghostAt<T extends { t: number; progress?: number; score?: number }>(timeline: readonly T[], elapsed: number, fallbackScore = 0) {
+  let point: T | null = null
+  for (const sample of timeline) {
+    if (!Number.isFinite(sample.t) || sample.t > elapsed) break
+    point = sample
+  }
+  const progress = Math.min(1, Math.max(0, point?.progress ?? 0))
+  return { progress, score: Math.max(0, Math.round(point?.score ?? progress * fallbackScore)) }
+}
+
 export function pulseAssignments(pulses: readonly { targetMs: number }[], taps: readonly { t: number }[]) {
   const used = new Set<number>()
   return pulses.map(pulse => {

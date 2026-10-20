@@ -6,7 +6,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { QUERY_KEYS } from '@/features/game/queries/keys'
 import { Footer } from '@/components/layout/footer'
 import { TrackView } from '@/components/analytics/track-view'
-import { Header } from '@/components/layout/header'
 import { useCharges } from '@/features/game/queries/useCharges.query'
 import { authClient } from '@/lib/auth/client'
 import { getErrorMessage } from '@/lib/utils'
@@ -87,34 +86,34 @@ export function GhostPlusClient({
 
   return (
     <div className="bg-ink-950 text-ghost-text flex min-h-dvh flex-col">
-      <Header />
+      
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-8">
         <TrackView name="paywall_viewed" props={{ surface: 'ghost-plus' }} />
         <p className="text-spectral-violet text-[11px] tracking-[0.18em] uppercase">Ghost+</p>
         <h1 className="font-display font-800 text-3xl">KEEP YOUR GHOST MOVING.</h1>
         <p className="text-ghost-muted text-sm leading-6">
-          Unlimited unranked practice. Free players get five combined ranked and practice charges
-          per UTC day. Everyone still gets exactly one ranked attempt. Challenge races stay free.
+          Unlimited runs, every day. Free players get five runs per UTC day. Challenge races stay
+          free, and every run still races your best ghost.
         </p>
         <div
           className="rounded-card border-spectral-violet/30 bg-surface-800 border p-5 text-sm"
           aria-live="polite"
         >
           {active ? (
-            <p>Ghost+ is active. Your practice is unlimited.</p>
+            <p>Ghost+ is active. Your runs are unlimited.</p>
           ) : awaitingPayment ? (
             <p>
               Awaiting verified payment. Your plan only changes after the server confirms payment.
             </p>
           ) : (
             <p>
-              Upgrade for unlimited practice. Review pricing and subscription terms securely at
+              Upgrade for unlimited runs. Review pricing and subscription terms securely at
               checkout.
             </p>
           )}
           {charges.isError && (
-            <p role="alert" className="text-rival-coral mt-2">
-              {charges.error.message}
+            <p role="status" className="text-ghost-muted mt-2 text-xs">
+              Billing status is taking a moment. Refresh to try again.
             </p>
           )}
           {(awaitingPayment || charges.isError) && (

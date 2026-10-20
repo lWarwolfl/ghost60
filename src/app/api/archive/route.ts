@@ -20,13 +20,14 @@ export async function GET(req: Request) {
   const games = await db.select().from(DailyGame).where(and(
     lte(DailyGame.gameDate, today), lte(DailyGame.publishAt, new Date()),
     inArray(DailyGame.status, ['scheduled', 'live', 'completed']),
+    eq(DailyGame.kind, 'daily'),
     locked ? gte(DailyGame.gameDate, start) : undefined,
     before ? lt(DailyGame.gameDate, before) : undefined,
     gameId ? eq(DailyGame.gameId, gameId) : undefined
   )).orderBy(desc(DailyGame.gameDate)).limit(31)
   const visible = games.slice(0, 30)
   const runs = visible.length ? await db.select({ id: Run.id, dailyGameId: Run.dailyGameId, mode: Run.mode, score: Run.validatedScore }).from(Run).where(and(eq(Run.userId, user.id), eq(Run.valid, true), inArray(Run.dailyGameId, visible.map((game) => game.id)))).orderBy(desc(Run.createdAt)) : []
-  const older = locked ? await db.select({ total: count() }).from(DailyGame).where(and(lt(DailyGame.gameDate, start), lte(DailyGame.publishAt, new Date()), inArray(DailyGame.status, ['scheduled', 'live', 'completed']))) : []
+  const older = locked ? await db.select({ total: count() }).from(DailyGame).where(and(lt(DailyGame.gameDate, start), eq(DailyGame.kind, 'daily'), lte(DailyGame.publishAt, new Date()), inArray(DailyGame.status, ['scheduled', 'live', 'completed']))) : []
   return NextResponse.json({
     locked,
     days: visible.map((game) => ({

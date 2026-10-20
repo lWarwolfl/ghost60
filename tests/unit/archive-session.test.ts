@@ -6,6 +6,7 @@ describe('archive session requests', () => {
     const id = '00000000-0000-4000-8000-000000000001'
     expect(SessionRequestSchema.parse({ mode: 'practice', dailyGameId: id })).toMatchObject({ dailyGameId: id })
     expect(SessionRequestSchema.safeParse({ mode: 'past_self' }).success).toBe(false)
+    expect(SessionRequestSchema.safeParse({ mode: 'practice' }).success).toBe(false)
     expect(SessionRequestSchema.parse({ mode: 'past_self', sourceRunId: id })).toMatchObject({ sourceRunId: id })
   })
 })

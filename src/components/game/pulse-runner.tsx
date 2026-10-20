@@ -26,7 +26,7 @@ function radiusAt(tapT: number, targetMs: number, r: number) {
   return r * (1 + 0.15 * Math.min(1, (tapT - targetMs) / 300))
 }
 
-export function PulseRunner({ game, session }: { game: TPublicGame; session: TRunSession }) {
+export function PulseRunner({ game, session, onReady }: { game: TPublicGame; session: TRunSession; onReady?: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
   const avatarRef = useRef<HTMLCanvasElement>(null)
@@ -42,6 +42,10 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
     [config]
   )
   const durationMs = game.durationMs
+
+  useEffect(() => {
+    onReady?.()
+  }, [onReady])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -140,7 +144,8 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
       stop()
       ro.disconnect()
     }
-  }, [durationMs, pulses, session])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- countdown ticks must not re-init the canvas
+  }, [durationMs, pulses, session.skin, session.reduced])
 
   const tap = (clientX?: number, clientY?: number) => {
     if (session.phase !== 'running') return
@@ -158,6 +163,7 @@ export function PulseRunner({ game, session }: { game: TPublicGame; session: TRu
     const events = session.eventsRef.current
     const res = pulseEngine.scoreRun({ seed: game.seed, config, events, visibilityInterruptions: 0 })
     setScore(res.score)
+    session.reportScore(res.score)
     const targetIndex = pulseAssignments(pulses, events).indexOf(events.length - 1)
     const last = events[events.length - 1]
     const pulse = pulses[targetIndex]

@@ -21,8 +21,8 @@ import type { TPublicGame } from '@/features/game/store/game-store'
 const game: TPublicGame = { id: 'daily', gameDate: '2026-10-19', gameId: 'pulse', engineVersion: 1, seed: 'seed', config: {}, title: 'test', instruction: 'tap', durationMs: 10000 }
 let storage: Map<string, string>
 let cleanup: Array<() => void>
-function useMountedSession() {
-  const session = useRunSession(game, 'token')
+function useMountedSession(ready = true) {
+  const session = useRunSession(game, 'token', ready)
   cleanup.push(...harness.effects.map(effect => effect()).filter((effect): effect is () => void => typeof effect === 'function'))
   return session
 }
@@ -75,6 +75,14 @@ describe('run session lifecycle', () => {
     await vi.advanceTimersByTimeAsync(120)
     expect(harness.submit).toHaveBeenCalledTimes(1)
     expect(harness.submit).toHaveBeenCalledWith({ token: 'token', events: [{ type: 'tap', t: 0 }], visibilityInterruptions: 0 })
+  })
+
+  it('holds the countdown and the charge until the runner is mounted', async () => {
+    const session = useMountedSession(false)
+    await vi.advanceTimersByTimeAsync(20000)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(session.getElapsed()).toBe(0)
+    expect(session.logEvent({ type: 'tap' })).toBe(-1)
   })
 
   it('does not restart a locally consumed token after reload', async () => {

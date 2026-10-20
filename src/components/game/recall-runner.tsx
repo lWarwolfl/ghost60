@@ -16,6 +16,7 @@ import {
 import { drawSkinAvatar } from '@/lib/game/skin-renderer'
 import { audio } from '@/lib/game/audio'
 import { gameplayLoop, drawFeedback, recallFeedback, committedGhost } from '@/lib/game/gameplay-motion'
+import { PromptFlash } from '@/components/game/prompt-flash'
 
 function fitCanvas(canvas: HTMLCanvasElement) {
   const dpr = Math.min(2, window.devicePixelRatio || 1)
@@ -38,16 +39,20 @@ function cellAt(layout: { cells: Array<{ x: number; y: number; size: number }> }
 export function RecallRunner({
   game,
   session,
+  onReady,
   rivalScore = null
 }: {
   game: TPublicGame
   session: TRunSession
+  onReady?: () => void
   rivalScore?: number | null
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
   const avatarRef = useRef<HTMLCanvasElement>(null)
   const statusRef = useRef<HTMLSpanElement>(null)
+  const promptRef = useRef('')
+  const [prompt, setPrompt] = useState<{ key: string; label: string; tone: 'violet' | 'lime' } | null>(null)
   const verdictRef = useRef<ReturnType<typeof recallFeedback>>(null)
   const resolutionRef = useRef({ count: -1, resolved: [] as TSeqResolution[] })
   const [score, setScore] = useState(0)
@@ -56,6 +61,10 @@ export function RecallRunner({
   const schedule = useMemo(() => showSchedule(config), [config])
   const durationMs = game.durationMs
   const grid = config.grid
+
+  useEffect(() => {
+    onReady?.()
+  }, [onReady])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -154,6 +163,15 @@ export function RecallRunner({
                 return `SEQ ${current + 1}/${config.sequences.length} · YOUR TURN`
               })()
       }
+      if (current !== -1) {
+        const slot = schedule[current]
+        const stage = elapsed < slot.showStart ? 'ready' : elapsed < slot.showEnd ? 'watch' : 'turn'
+        const key = `${current}:${stage}`
+        if (stage !== 'ready' && promptRef.current !== key) {
+          promptRef.current = key
+          setPrompt({ key, label: stage === 'watch' ? 'WATCH' : 'YOUR TURN', tone: stage === 'watch' ? 'violet' : 'lime' })
+        }
+      }
       if (timeRef.current) {
         const left = Math.max(0, durationMs - elapsed)
         timeRef.current.textContent = `${(left / 1000).toFixed(1)}s`
@@ -165,7 +183,8 @@ export function RecallRunner({
       stop()
       ro.disconnect()
     }
-  }, [config, durationMs, grid, schedule, session, focus])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- countdown ticks must not re-init the canvas
+  }, [config, durationMs, grid, schedule, focus, session.skin, session.reduced])
 
   const choose = (cell: number) => {
     if (session.phase !== 'running') return
@@ -179,6 +198,7 @@ export function RecallRunner({
     const next = session.eventsRef.current.filter((e) => e.type === 'choice') as TChoice[]
     const res = recallEngine.scoreRun({ seed: game.seed, config, events: session.eventsRef.current, visibilityInterruptions: 0 })
     setScore(res.score)
+    session.reportScore(res.score)
     const feedback = recallFeedback(config, next)
     verdictRef.current = feedback
     if (feedback?.status === 'failed') audio.miss()
@@ -232,6 +252,7 @@ export function RecallRunner({
           {score}
         </span>
       </div>
+      <PromptFlash key={prompt?.key ?? 'none'} label={prompt?.label ?? ''} tone={prompt?.tone ?? 'lime'} />
       <canvas
         ref={canvasRef}
         role="application"

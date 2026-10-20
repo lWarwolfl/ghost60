@@ -92,7 +92,7 @@ export type TProgressionResult = {
 export async function applyProgression(input: TProgressionInput, writer: Pick<typeof db, 'select' | 'insert' | 'update'>): Promise<TProgressionResult> {
   const { userId, run, engineId, gameDate, outcome } = input
   const empty: TProgressionResult = { xpAwarded: 0, unlocked: [], isPersonalBest: false, streak: null }
-  if (!run.valid) return empty
+  if (!run.valid || run.mode === 'dev') return empty
 
   await writer
     .insert(Achievement)
@@ -112,17 +112,19 @@ export async function applyProgression(input: TProgressionInput, writer: Pick<ty
   let isPersonalBest = false
   let streak: TStreakState | null = null
 
-  if (run.mode === 'ranked') {
-    const peers = await writer
-      .select({ validatedScore: Run.validatedScore, id: Run.id })
-      .from(Run)
-      .innerJoin(DailyGame, eq(Run.dailyGameId, DailyGame.id))
-      .where(and(eq(Run.userId, userId), eq(DailyGame.gameId, engineId), eq(Run.valid, true)))
-    const otherBest = peers.filter((r) => r.id !== run.id).map((r) => r.validatedScore)
-    if (otherBest.length === 0 || run.validatedScore > Math.max(...otherBest)) {
-      isPersonalBest = true
-      xpRows.push({ userId, sourceKey: `pb:${run.id}`, amount: XP.PERSONAL_BEST, reason: 'personal_best' })
-    }
+  const peers = await writer
+    .select({ validatedScore: Run.validatedScore, id: Run.id })
+    .from(Run)
+    .innerJoin(DailyGame, eq(Run.dailyGameId, DailyGame.id))
+    .where(and(eq(Run.userId, userId), eq(DailyGame.gameId, engineId), eq(Run.valid, true)))
+  const otherBest = peers.filter((r) => r.id !== run.id).map((r) => r.validatedScore)
+  if (otherBest.length === 0 || run.validatedScore > Math.max(...otherBest)) {
+    isPersonalBest = true
+    xpRows.push({ userId, sourceKey: `pb:${run.id}`, amount: XP.PERSONAL_BEST, reason: 'personal_best' })
+  }
+
+  const countsForDay = run.mode === 'ranked' || run.mode === 'special'
+  if (countsForDay) {
     xpRows.push({ userId, sourceKey: `ranked:${userId}:${run.dailyGameId}`, amount: XP.RANKED_COMPLETION, reason: 'ranked_completion' })
 
     const streakRows = await writer.select().from(Streak).where(eq(Streak.userId, userId))
@@ -135,7 +137,8 @@ export async function applyProgression(input: TProgressionInput, writer: Pick<ty
           graceUsedTotal: streakRows[0].graceUsedTotal
         }
       : { currentCount: 0, longestCount: 0, lastCompletedDate: null, graceTokens: 0, graceUsedTotal: 0 }
-    const next = streakTransition(current, gameDate, input.isGhostPlus ? 2 : 1)
+    const streakDate = run.mode === 'special' ? new Date().toISOString().slice(0, 10) : gameDate
+    const next = streakTransition(current, streakDate, input.isGhostPlus ? 2 : 1)
     streak = next
     if (next.changed) {
       if (streakRows[0]) {
@@ -160,21 +163,20 @@ export async function applyProgression(input: TProgressionInput, writer: Pick<ty
         })
       }
       if (next.currentCount > 0 && next.currentCount % 7 === 0) {
-        xpRows.push({ userId, sourceKey: `streak7:${userId}:${gameDate}`, amount: XP.STREAK_7, reason: 'streak_7' })
+        xpRows.push({ userId, sourceKey: `streak7:${userId}:${streakDate}`, amount: XP.STREAK_7, reason: 'streak_7' })
       }
     }
     if (next.currentCount >= 7) unlockIds.add('seven_signals')
     if (next.currentCount >= 30) unlockIds.add('thirty_signals')
-
-    const engines = await writer
-      .select({ gameId: DailyGame.gameId })
-      .from(Run)
-      .innerJoin(DailyGame, eq(Run.dailyGameId, DailyGame.id))
-      .where(and(eq(Run.userId, userId), eq(Run.valid, true)))
-    if (new Set(engines.map((e) => e.gameId)).size >= 6) unlockIds.add('six_senses')
-
-    if (run.mode === 'ranked') unlockIds.add('first_trace')
   }
+
+  const engines = await writer
+    .select({ gameId: DailyGame.gameId })
+    .from(Run)
+    .innerJoin(DailyGame, eq(Run.dailyGameId, DailyGame.id))
+    .where(and(eq(Run.userId, userId), eq(Run.valid, true)))
+  if (new Set(engines.map((e) => e.gameId)).size >= 6) unlockIds.add('six_senses')
+  unlockIds.add('first_trace')
 
   if (outcome && outcome !== 'invalid') {
     unlockIds.add('echo_found')

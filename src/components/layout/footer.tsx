@@ -7,7 +7,7 @@ export function Footer() {
       <div className="mx-auto flex w-full max-w-md flex-col gap-1 px-4 py-6 text-xs text-ghost-muted sm:max-w-2xl">
         <Ghost60Wordmark className="h-8 w-36" />
         <p className="font-display tracking-[0.18em]">SIGNAL LOST</p>
-        <p>One shared game per day. One ranked run. Leave a ghost.</p>
+        <p>One shared game per day. Five runs free. Leave a ghost.</p>
         <p className="flex gap-4">
           <Link href="/privacy" className="underline">
             Privacy

@@ -149,14 +149,14 @@ beforeEach(() => {
 })
 
 describe('challenge and ranked lifecycle', () => {
-  it('satisfies both results for the first daily challenge, free even at zero charges', async () => {
+  it('keeps challenge races free even at zero daily charges', async () => {
     state.rows.set(
       RunSession,
       Array.from({ length: 5 }, (_, i) => ({
         id: `spent-${i}`,
         userId: 'recipient',
         dailyGameId: dailyId,
-        mode: 'practice',
+        mode: 'ranked',
         consumedAt: new Date(),
         state: 'submitted',
         startedAt: new Date(),
@@ -168,24 +168,24 @@ describe('challenge and ranked lifecycle', () => {
     expect(created.status).toBe(200)
     const snapshot = await created.json()
     expect(snapshot).toMatchObject({
-      mode: 'ranked',
+      mode: 'challenge',
       challenge: { id: challengeId, ghost: { timeline: [] } },
     })
     expect(snapshot.challenge).not.toHaveProperty('eventStream')
     const response = await submit(request({ token: snapshot.token, events: [] }))
     expect(await response.json()).toMatchObject({
-      run: { mode: 'ranked' },
+      run: { mode: 'challenge' },
       outcome: 'win',
       progression: { xpAwarded: 120 },
     })
     expect(state.rows.get(ChallengeAttempt)).toHaveLength(1)
     expect(state.progression).toHaveBeenCalledWith(
-      expect.objectContaining({ run: expect.objectContaining({ mode: 'ranked' }), outcome: 'win' }),
+      expect.objectContaining({ run: expect.objectContaining({ mode: 'challenge' }), outcome: 'win' }),
       expect.anything()
     )
     expect(state.locks).toHaveBeenCalledWith('update')
     const second = await createSession(request({ mode: 'ranked' }))
-    expect(second.status).toBe(409)
+    expect(second.status).toBe(403)
     const duplicate = await submit(request({ token: snapshot.token, events: [] }))
     expect(await duplicate.json()).toMatchObject({ alreadySubmitted: true, outcome: 'win' })
     expect(state.progression).toHaveBeenCalledOnce()
@@ -219,9 +219,9 @@ describe('challenge and ranked lifecycle', () => {
     ).toMatchObject({ mode: 'challenge' })
   })
 
-  it('resumes a dual-purpose ranked session with its challenge context from ordinary preflight', async () => {
+  it('resumes a challenge race with its context', async () => {
     const first = await (await createSession(request({ mode: 'challenge', challengeId }))).json()
-    const resumed = await (await createSession(request({ mode: 'ranked' }))).json()
+    const resumed = await (await createSession(request({ mode: 'challenge', challengeId }))).json()
     expect(resumed).toMatchObject({
       sessionId: first.sessionId,
       resumed: true,
@@ -229,7 +229,7 @@ describe('challenge and ranked lifecycle', () => {
     })
   })
 
-  it('never reopens ranked after an exhausted technical retry', async () => {
+  it('opens a fresh ranked session after an exhausted retry', async () => {
     state.rows.set(RunSession, [
       {
         id: 'retry',
@@ -243,7 +243,7 @@ describe('challenge and ranked lifecycle', () => {
         technicalRetryOf: 'original',
       },
     ])
-    expect((await createSession(request({ mode: 'ranked' }))).status).toBe(409)
+    expect((await createSession(request({ mode: 'ranked' }))).status).toBe(200)
   })
 })
 
