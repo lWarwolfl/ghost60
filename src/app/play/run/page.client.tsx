@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { GhostAvatar } from '@/components/brand/ghost-avatar'
 import { GhostRace } from '@/components/game/ghost-race'
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion.hook'
-import { ShareButtons } from '@/components/results/share-buttons'
+import { ShareSheet } from '@/components/results/share-sheet'
 import { SkinCardFrame } from '@/components/game/skin-card-frame'
 import { useProfile } from '@/features/game/queries/useProfile.query'
 import { resolveSkin } from '@/lib/game/skins'
@@ -133,6 +133,7 @@ function ResultPanel({
   const { data: profile } = useProfile()
   const cardSkin = resolveSkin(profile?.cosmetics.equipped.card, profile?.plan)
   const [sharedUrl, setSharedUrl] = useState<string | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
   const [challengeError, setChallengeError] = useState<string | null>(null)
   const scoreDisplay = useRef<HTMLParagraphElement>(null)
   const { game, challenge } = snapshot
@@ -179,14 +180,19 @@ function ResultPanel({
     clear()
     router.push(href)
   }
-  const makeChallenge = async () => {
+  const openShare = async () => {
     setChallengeError(null)
-    try {
-      const created = await createChallenge.mutateAsync(result.runId)
-      setSharedUrl(created.url)
-    } catch {
-      setChallengeError('Couldn’t create the challenge. Try again.')
+    let url = sharedUrl
+    if (!url) {
+      try {
+        url = (await createChallenge.mutateAsync(result.runId)).url
+        setSharedUrl(url)
+      } catch {
+        setChallengeError('Couldn’t create the share link. Try again.')
+        return
+      }
     }
+    setShareOpen(true)
   }
   const delta = challenge ? score - challenge.targetScore : 0
   const outcomeTitle = !challenge
@@ -275,39 +281,49 @@ function ResultPanel({
           {challengeError}
         </p>
       )}
+      <div className="flex w-full flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => void openShare()}
+          disabled={createChallenge.isPending || result.provisional}
+          className="rounded-control bg-spectral-violet font-display font-800 text-ink-950 flex min-h-12 items-center justify-center px-5 text-sm tracking-[0.14em] disabled:opacity-50"
+        >
+          {createChallenge.isPending
+            ? 'PREPARING…'
+            : challenge
+              ? 'SHARE REVENGE'
+              : 'SHARE RESULT'}
+        </button>
+        <p className="text-ghost-muted text-[10px] tracking-[0.08em]">
+          Creates a ghost link anyone can race.
+        </p>
+        <button
+          type="button"
+          onClick={() => leave('/')}
+          className="rounded-control font-600 flex min-h-12 items-center justify-center border border-white/15 px-5 text-sm"
+        >
+          BACK TO TODAY
+        </button>
+      </div>
       {sharedUrl ? (
-        <div className="w-full">
-          <ShareButtons
-            url={sharedUrl}
-            title="Ghost60 challenge"
-            text={
-              challenge ? `I just raced ${challenge.handle}'s ghost. Revenge?` : 'Race my ghost.'
-            }
-          />
-        </div>
-      ) : (
-        <div className="flex w-full flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => void makeChallenge()}
-            disabled={createChallenge.isPending || result.provisional}
-            className="rounded-control bg-spectral-cyan font-display font-800 text-ink-950 flex min-h-12 items-center justify-center px-5 text-sm tracking-[0.14em] disabled:opacity-50"
-          >
-            {createChallenge.isPending
-              ? 'WORKING…'
-              : challenge
-                ? 'SEND REVENGE'
-                : 'RACE MY GHOST'}
-          </button>
-          <button
-            type="button"
-            onClick={() => leave('/')}
-            className="rounded-control font-600 flex min-h-12 items-center justify-center border border-white/15 px-5 text-sm"
-          >
-            BACK TO TODAY
-          </button>
-        </div>
-      )}
+        <ShareSheet
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          data={{
+            url: sharedUrl,
+            score,
+            gameTitle: game.title,
+            gameId: game.gameId,
+            gameDate: game.gameDate,
+            handle: profile?.profile?.handle ?? null,
+            ghostSkin: profile?.cosmetics.equipped.ghost ?? null,
+            personalBest: result.isPersonalBest,
+            streak: profile?.streak?.currentCount ?? 0,
+            challengeHandle: challenge?.handle ?? null,
+            challengeTarget: challenge?.targetScore
+          }}
+        />
+      ) : null}
     </SkinCardFrame>
   )
 }
