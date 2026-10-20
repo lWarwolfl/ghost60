@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db } from '@/drizzle'
 import { Challenge, DailyGame, PlayerProfile, Run, type TChallenge } from '@/drizzle/schema'
-import { Footer } from '@/components/layout/footer'
 import { RaceClient } from '@/app/challenge/[slug]/race/page.client'
 
 export const dynamic = 'force-dynamic'
@@ -48,7 +47,6 @@ export default async function RacePage({ params }: { params: Promise<{ slug: str
           Back to challenge
         </Link>
       </main>
-      <Footer />
     </div>
   )
 }

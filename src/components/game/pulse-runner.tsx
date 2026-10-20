@@ -18,12 +18,18 @@ function fitCanvas(canvas: HTMLCanvasElement) {
   return { w: canvas.width, h: canvas.height }
 }
 
-function radiusAt(tapT: number, targetMs: number, r: number) {
+function radiusAt(tapT: number, targetMs: number, r: number, approachMs = APPROACH_MS) {
   if (tapT <= targetMs) {
-    const p = Math.min(1, Math.max(0, (tapT - (targetMs - APPROACH_MS)) / APPROACH_MS))
+    const p = Math.min(1, Math.max(0, (tapT - (targetMs - approachMs)) / approachMs))
     return r * (1 + 0.9 * (1 - p))
   }
   return r * (1 + 0.15 * Math.min(1, (tapT - targetMs) / 300))
+}
+
+function approachFor(pulses: readonly { targetMs: number }[], index: number) {
+  if (index <= 0) return APPROACH_MS
+  const gap = pulses[index].targetMs - pulses[index - 1].targetMs
+  return Math.max(650, Math.min(APPROACH_MS, gap * 0.5))
 }
 
 export function PulseRunner({ game, session, onReady }: { game: TPublicGame; session: TRunSession; onReady?: () => void }) {
@@ -31,7 +37,7 @@ export function PulseRunner({ game, session, onReady }: { game: TPublicGame; ses
   const timeRef = useRef<HTMLSpanElement>(null)
   const avatarRef = useRef<HTMLCanvasElement>(null)
   const [score, setScore] = useState(0)
-  const impactRef = useRef<{ at: number; targetMs: number; accuracy: number; delta: number } | null>(null)
+  const impactRef = useRef<{ at: number; targetMs: number; accuracy: number; delta: number; approach: number } | null>(null)
   const scoreRef = useRef(0)
   const config = useMemo(
     () => pulseEngine.validateConfig(game.config) as TPulseConfig,
@@ -82,9 +88,11 @@ export function PulseRunner({ game, session, onReady }: { game: TPublicGame; ses
       ctx2d.beginPath()
       ctx2d.arc(cx, cy, r, 0, Math.PI * 2)
       ctx2d.stroke()
-      for (const pulse of pulses) {
-        if (pulse.targetMs < elapsed - 500 || pulse.targetMs > elapsed + APPROACH_MS + 300) continue
-        const p = Math.min(1, Math.max(0, (elapsed - (pulse.targetMs - APPROACH_MS)) / APPROACH_MS))
+      for (let i = 0; i < pulses.length; i += 1) {
+        const pulse = pulses[i]
+        const approach = approachFor(pulses, i)
+        if (pulse.targetMs < elapsed - 500 || pulse.targetMs > elapsed + approach + 300) continue
+        const p = Math.min(1, Math.max(0, (elapsed - (pulse.targetMs - approach)) / approach))
         const done = elapsed > pulse.targetMs
         const alpha = done ? Math.max(0, 1 - (elapsed - pulse.targetMs) / 300) : 0.9
         const rr = done
@@ -119,7 +127,7 @@ export function PulseRunner({ game, session, onReady }: { game: TPublicGame; ses
           ctx2d.strokeStyle = kind === 'perfect' ? '#c7ff5e' : kind === 'good' ? '#62f7e6' : '#ff668f'
           ctx2d.lineWidth = lw * 2
           ctx2d.beginPath()
-          ctx2d.arc(cx, cy, radiusAt(impact.at, impact.targetMs, r), 0, Math.PI * 2)
+          ctx2d.arc(cx, cy, radiusAt(impact.at, impact.targetMs, r, impact.approach), 0, Math.PI * 2)
           ctx2d.stroke()
         }
         if (age >= 0 && age < (kind === 'miss' ? 80 : 120)) {
@@ -168,7 +176,13 @@ export function PulseRunner({ game, session, onReady }: { game: TPublicGame; ses
     const last = events[events.length - 1]
     const pulse = pulses[targetIndex]
     const accuracy = pulse ? Math.max(0, 1 - Math.abs(last.t - pulse.targetMs) / pulse.toleranceMs) : 0
-    impactRef.current = { at: last.t, targetMs: pulse?.targetMs ?? last.t, accuracy, delta: res.score - scoreRef.current }
+    impactRef.current = {
+      at: last.t,
+      targetMs: pulse?.targetMs ?? last.t,
+      accuracy,
+      delta: res.score - scoreRef.current,
+      approach: targetIndex >= 0 ? approachFor(pulses, targetIndex) : APPROACH_MS
+    }
     scoreRef.current = res.score
     if (accuracy >= 0.999) audio.perfect()
     else if (accuracy > 0) audio.correct()

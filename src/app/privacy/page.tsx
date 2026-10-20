@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { Footer } from '@/components/layout/footer'
 
 export default function PrivacyPage() {
   return (
@@ -37,7 +36,6 @@ export default function PrivacyPage() {
           Manage your data in Settings
         </Link>
       </main>
-      <Footer />
     </div>
   )
 }

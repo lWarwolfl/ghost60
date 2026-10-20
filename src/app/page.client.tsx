@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useState, useSyncExternalStore } from 'react'
 import { GameIcon } from '@/components/brand/game-icon'
 import { Ghost60Mark } from '@/components/brand/ghost60-mark'
 import { RunMeter } from '@/components/game/run-meter'
@@ -8,7 +9,70 @@ import { SpecialGame } from '@/components/game/special-game'
 import { useCharges } from '@/features/game/queries/useCharges.query'
 import { useTodayGame } from '@/features/game/queries/useTodayGame.query'
 import { useLocalProgress } from '@/lib/hooks/useLocalProgress.hook'
-import { Footer } from '@/components/layout/footer'
+
+const UPDATE = {
+  id: '2026-10-20-tuning',
+  items: [
+    'CLEAN ORBIT accelerates: the dot speeds up and more targets arrive late in the round.',
+    'FIRST SIGNAL keeps a fair hit window and speeds up the ring instead.',
+    'Footer removed, and archive challenges no longer need Ghost+.'
+  ]
+}
+
+const UPDATE_SEEN_KEY = 'ghost60:update-seen'
+
+function subscribeUpdate(onChange: () => void) {
+  window.addEventListener('storage', onChange)
+  return () => window.removeEventListener('storage', onChange)
+}
+
+function updateSeen() {
+  try {
+    return window.localStorage.getItem(UPDATE_SEEN_KEY) === UPDATE.id
+  } catch {
+    return true
+  }
+}
+
+function UpdateNotice() {
+  const seen = useSyncExternalStore(subscribeUpdate, updateSeen, () => true)
+  const [dismissed, setDismissed] = useState(false)
+  if (seen || dismissed) return null
+  const dismiss = () => {
+    try {
+      window.localStorage.setItem(UPDATE_SEEN_KEY, UPDATE.id)
+    } catch {}
+    setDismissed(true)
+  }
+  return (
+    <section
+      aria-labelledby="update-title"
+      className="rounded-card border-signal-amber/30 bg-signal-amber/10 animate-enter border p-4"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-signal-amber text-[10px] tracking-[0.18em] uppercase">Update</p>
+          <h2 id="update-title" className="font-display text-lg font-800">
+            WHAT CHANGED
+          </h2>
+        </div>
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label="Dismiss update"
+          className="text-ghost-muted -m-2 flex size-11 items-center justify-center text-2xl leading-none"
+        >
+          ×
+        </button>
+      </div>
+      <ul className="text-ghost-muted mt-2 space-y-1 text-xs leading-5">
+        {UPDATE.items.map((item) => (
+          <li key={item}>· {item}</li>
+        ))}
+      </ul>
+    </section>
+  )
+}
 
 const STEPS = [
   {
@@ -35,6 +99,7 @@ export function HomeClient() {
   return (
     <div className="flex min-h-dvh flex-col bg-ink-950 text-ghost-text">
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-8 sm:max-w-2xl">
+        <UpdateNotice />
         <section aria-labelledby="hero" className="flex flex-col gap-5 animate-enter">
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-4">
@@ -157,7 +222,6 @@ export function HomeClient() {
           </Link>
         </section>
       </main>
-      <Footer />
     </div>
   )
 }

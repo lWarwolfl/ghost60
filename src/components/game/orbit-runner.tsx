@@ -7,6 +7,7 @@ import type { GameInputEvent } from '@/games/core/game-module'
 import { angleDistDeg, orbitBand, orbitEngine, type TOrbitConfig } from '@/games/orbit/engine'
 import {
   ORBIT_ARC_LEAD_MS,
+  ORBIT_MARKER_PERIOD_MS,
   ORBIT_VERDICT_MS,
   angleFromPoint,
   assignTaps,
@@ -54,6 +55,8 @@ export function OrbitRunner({
   const [done, setDone] = useState(0)
   const config = useMemo(() => orbitEngine.validateConfig(game.config) as TOrbitConfig, [game.config])
   const targets = config.targets
+  const markerPeriod = config.markerPeriodMs ?? ORBIT_MARKER_PERIOD_MS
+  const markerRamp = config.markerRamp ?? 0
   const durationMs = game.durationMs
 
   useEffect(() => {
@@ -147,7 +150,7 @@ export function OrbitRunner({
         ctx2d.fill()
       }
 
-      const marker = markerAngleAt(elapsed) * RAD
+      const marker = markerAngleAt(elapsed, markerPeriod, markerRamp, durationMs) * RAD
       ctx2d.fillStyle = '#f5f7ff'
       ctx2d.beginPath()
       ctx2d.arc(cx + r * Math.cos(marker), cy + r * Math.sin(marker), lw * 1.8, 0, Math.PI * 2)
@@ -186,7 +189,7 @@ export function OrbitRunner({
       ro.disconnect()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- countdown ticks must not re-init the canvas
-  }, [durationMs, targets, rivalNotches, session.skin, session.reduced])
+  }, [durationMs, targets, markerPeriod, markerRamp, rivalNotches, session.skin, session.reduced])
 
   const tap = (clientX?: number, clientY?: number) => {
     if (session.phase !== 'running') return
@@ -205,7 +208,7 @@ export function OrbitRunner({
         y: Math.min(10000, Math.max(0, Math.round(((clientY - rect.top) / rect.height) * 10000)))
       }
     } else {
-      value = toIntAngle(markerAngleAt(elapsed))
+      value = toIntAngle(markerAngleAt(elapsed, markerPeriod, markerRamp, durationMs))
     }
     if (session.logEvent(p ? { type: 'tap', p, value } : { type: 'tap', value }) < 0) return
     const events = session.eventsRef.current

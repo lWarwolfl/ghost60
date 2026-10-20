@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { GhostReplay } from '@/components/game/ghost-replay'
-import { Footer } from '@/components/layout/footer'
 import type { SanitizedGhost, GameInputEvent } from '@/games/core/game-module'
 import type { TPublicGame } from '@/features/game/store/game-store'
 
@@ -59,7 +58,6 @@ export function ReplayClient({ runId }: { runId: string }) {
           </>
         )}
       </main>
-      <Footer />
     </div>
   )
 }

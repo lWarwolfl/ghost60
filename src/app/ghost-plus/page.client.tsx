@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { QUERY_KEYS } from '@/features/game/queries/keys'
-import { Footer } from '@/components/layout/footer'
 import { TrackView } from '@/components/analytics/track-view'
 import { useCharges } from '@/features/game/queries/useCharges.query'
 import { authClient } from '@/lib/auth/client'
@@ -199,7 +198,6 @@ export function GhostPlusClient({
           Back to play
         </Link>
       </main>
-      <Footer />
     </div>
   )
 }

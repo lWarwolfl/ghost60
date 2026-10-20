@@ -1,4 +1,3 @@
-import { Footer } from '@/components/layout/footer'
 import { LeaguesClient } from '@/app/leagues/page.client'
 
 export default function LeaguesPage() {
@@ -12,7 +11,6 @@ export default function LeaguesPage() {
         </div>
         <LeaguesClient />
       </main>
-      <Footer />
     </div>
   )
 }

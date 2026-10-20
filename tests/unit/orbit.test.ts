@@ -144,6 +144,10 @@ describe('orbit table helpers', () => {
     expect(markerAngleAt(4000)).toBe(0)
     expect(markerAngleAt(500)).toBe(45)
   })
+  it('speeds the marker up across a ramped round', () => {
+    const step = (t: number) => (markerAngleAt(t, 3000, 1) - markerAngleAt(t - 500, 3000, 1) + 360) % 360
+    expect(step(44500)).toBeGreaterThan(step(1500))
+  })
   it('converts tap points to compass degrees', () => {
     expect(angleFromPoint(1, 0, 0, 0)).toBe(0)
     expect(angleFromPoint(0, 1, 0, 0)).toBe(90)

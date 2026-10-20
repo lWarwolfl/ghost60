@@ -4,9 +4,18 @@ import type { TOrbitTarget } from '@/games/orbit/engine'
 export const ORBIT_MARKER_PERIOD_MS = 4000
 export const ORBIT_ARC_LEAD_MS = 1200
 export const ORBIT_VERDICT_MS = 300
+export const ORBIT_DURATION_MS = 45000
 
-export function markerAngleAt(elapsedMs: number, periodMs = ORBIT_MARKER_PERIOD_MS) {
-  const a = ((elapsedMs / periodMs) * 360) % 360
+export function markerAngleAt(
+  elapsedMs: number,
+  periodMs = ORBIT_MARKER_PERIOD_MS,
+  ramp = 0,
+  durationMs = ORBIT_DURATION_MS
+) {
+  const t = Math.max(0, elapsedMs)
+  // Linear speed ramp: the angular position is the integral of 1 + ramp * t / duration.
+  const turns = (t + (ramp * t * t) / (2 * Math.max(1, durationMs))) / Math.max(1, periodMs)
+  const a = (turns * 360) % 360
   return a < 0 ? a + 360 : a
 }
 

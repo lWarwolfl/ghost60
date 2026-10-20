@@ -6,7 +6,6 @@ import { db } from '@/drizzle'
 import { Challenge, DailyGame, PlayerProfile, Run, type TChallenge } from '@/drizzle/schema'
 import { GameIcon } from '@/components/brand/game-icon'
 import { TrackView } from '@/components/analytics/track-view'
-import { Footer } from '@/components/layout/footer'
 import { ChallengeSafetyClient } from '@/app/challenge/[slug]/safety.client'
 import { getCurrentUser } from '@/lib/auth/server'
 import type { GameId } from '@/games/core/game-module'
@@ -96,7 +95,6 @@ export default async function ChallengeLanding({ params }: { params: Promise<{ s
           </>
         )}
       </main>
-      <Footer />
     </div>
   )
 }

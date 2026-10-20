@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { Footer } from '@/components/layout/footer'
 
 export default function TermsPage() {
   return (
@@ -37,7 +36,6 @@ export default function TermsPage() {
           Back to today&apos;s game
         </Link>
       </main>
-      <Footer />
     </div>
   )
 }

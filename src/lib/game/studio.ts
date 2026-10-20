@@ -54,6 +54,22 @@ async function ensureGame(input: {
   }).onConflictDoNothing({ target: DailyGame.gameDate }).returning()
   if (inserted.length > 0) return inserted[0]
   const rows = await db.select().from(DailyGame).where(eq(DailyGame.gameDate, input.gameDate))
+  if (input.kind === 'dev' && rows[0]) {
+    // Dev games are playtest fixtures: keep them on the latest tuned config.
+    const [updated] = await db
+      .update(DailyGame)
+      .set({
+        seed: built.seed,
+        config: built.config as Record<string, unknown>,
+        title: input.title,
+        instruction: input.day.instruction,
+        shareSubtitle: input.day.shareSubtitle,
+        difficulty: input.day.difficulty
+      })
+      .where(eq(DailyGame.id, rows[0].id))
+      .returning()
+    if (updated) return updated
+  }
   return rows[0]
 }
 

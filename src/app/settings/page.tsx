@@ -1,7 +1,6 @@
 import { SettingsClient } from '@/app/settings/page.client'
 import { DangerZoneClient } from '@/app/settings/danger.client'
 import { PrefsClient } from '@/app/settings/prefs.client'
-import { Footer } from '@/components/layout/footer'
 
 export default function SettingsPage() {
   return (
@@ -24,7 +23,6 @@ export default function SettingsPage() {
           </a>
         </p>
       </main>
-      <Footer />
     </div>
   )
 }

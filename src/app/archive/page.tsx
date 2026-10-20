@@ -1,5 +1,4 @@
 import { ArchiveClient } from '@/app/archive/page.client'
-import { Footer } from '@/components/layout/footer'
 
 export default function ArchivePage() {
   return (
@@ -12,7 +11,6 @@ export default function ArchivePage() {
         </div>
         <ArchiveClient />
       </main>
-      <Footer />
     </div>
   )
 }

@@ -51,11 +51,29 @@ describe('day config builder', () => {
       const built = buildDayConfig(day)
       const config = built.config as {
         targets: Array<{ angleDeg: number; openMs: number; closeMs: number; perfectTolDeg: number }>
+        markerPeriodMs?: number
+        markerRamp?: number
       }
       for (const target of config.targets) {
-        const marker = markerAngleAt((target.openMs + target.closeMs) / 2)
+        const marker = markerAngleAt(
+          (target.openMs + target.closeMs) / 2,
+          config.markerPeriodMs,
+          config.markerRamp ?? 0
+        )
         expect(angleDistDeg(marker, target.angleDeg)).toBeLessThanOrEqual(target.perfectTolDeg)
       }
+    }
+  })
+  it('keeps pulse windows constant while the rhythm accelerates', () => {
+    const pulseDays = schedule.days.filter((d) => d.engine === 'pulse')
+    expect(pulseDays.length).toBeGreaterThan(0)
+    for (const day of pulseDays) {
+      const config = buildDayConfig(day).config as {
+        pulses: Array<{ targetMs: number; toleranceMs: number }>
+      }
+      expect(new Set(config.pulses.map((p) => p.toleranceMs)).size).toBe(1)
+      const gaps = config.pulses.slice(1).map((p, i) => p.targetMs - config.pulses[i].targetMs)
+      expect(gaps[gaps.length - 1]).toBeLessThan(gaps[0])
     }
   })
 })

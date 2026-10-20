@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation'
 import { GameIcon } from '@/components/brand/game-icon'
-import { Footer } from '@/components/layout/footer'
 import { useCreateSession } from '@/features/game/mutations/useCreateSession.mutation'
 import { useGameStore } from '@/features/game/store/game-store'
 import { audio } from '@/lib/game/audio'
@@ -75,7 +74,6 @@ export function DevClient() {
           ))}
         </ul>
       </main>
-      <Footer />
     </div>
   )
 }

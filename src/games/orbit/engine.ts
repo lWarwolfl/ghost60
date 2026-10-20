@@ -25,7 +25,11 @@ const OrbitTargetSchema = z
   })
   .refine((t) => t.closeMs > t.openMs, { message: 'window-order' })
 
-const OrbitConfigSchema = z.object({ targets: z.array(OrbitTargetSchema).min(3).max(20) })
+const OrbitConfigSchema = z.object({
+  targets: z.array(OrbitTargetSchema).min(3).max(20),
+  markerPeriodMs: z.number().min(1000).max(10000).optional(),
+  markerRamp: z.number().min(0).max(2).optional()
+})
 
 export type TOrbitConfig = z.output<typeof OrbitConfigSchema>
 

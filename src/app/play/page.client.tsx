@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { GameIcon } from '@/components/brand/game-icon'
 import { TrackView } from '@/components/analytics/track-view'
-import { Footer } from '@/components/layout/footer'
 import { RunMeter } from '@/components/game/run-meter'
 import { useCreateSession } from '@/features/game/mutations/useCreateSession.mutation'
 import { useTodayGame } from '@/features/game/queries/useTodayGame.query'
@@ -114,7 +113,6 @@ export function PreflightClient() {
           Back to today
         </Link>
       </main>
-      <Footer />
     </div>
   )
 }

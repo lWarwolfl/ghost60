@@ -1,6 +1,5 @@
 import { GoogleSignIn } from '@/components/auth/google-sign-in'
 import { ProfileClient } from '@/app/profile/page.client'
-import { Footer } from '@/components/layout/footer'
 
 export default function ProfilePage() {
   return (
@@ -14,7 +13,6 @@ export default function ProfilePage() {
         <GoogleSignIn />
         <ProfileClient />
       </main>
-      <Footer />
     </div>
   )
 }

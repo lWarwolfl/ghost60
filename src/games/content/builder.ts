@@ -1,7 +1,7 @@
 import { createRng } from '@/games/core/rng'
 import type { TScheduleDay } from '@/games/content/schedule'
-import { orbitEngine } from '@/games/orbit/engine'
-import { markerAngleAt } from '@/games/orbit/table'
+import { orbitEngine, type TOrbitTarget } from '@/games/orbit/engine'
+import { markerAngleAt, ORBIT_DURATION_MS } from '@/games/orbit/table'
 import { pulseEngine } from '@/games/pulse/engine'
 import { recallEngine } from '@/games/recall/engine'
 import { shiftEngine } from '@/games/shift/engine'
@@ -15,19 +15,21 @@ function num(v: unknown, fallback: number) {
 }
 
 function buildPulse(day: TScheduleDay) {
-  const rng = createRng(day.seedKey)
   const count = Math.min(20, Math.max(3, Math.round(num(day.config['pulseCount'], 5))))
   const tolerance = Math.min(600, Math.max(60, Math.round(num(day.config['toleranceMs'], 180))))
-  const span = 45000 - 6000
-  const pulses = Array.from({ length: count }, (_, i) => {
-    const ramp = count > 1 ? Math.pow(i / (count - 1), 1.25) : 0
-    return {
-      targetMs: Math.round(3000 + (span * i) / Math.max(1, count - 1) + (rng.nextFloat() * 2 - 1) * 400),
-      toleranceMs: Math.min(600, Math.max(60, Math.round(tolerance * (1 - 0.5 * ramp))))
+  const start = 3000
+  const end = 43500
+  const avg = count > 1 ? (end - start) / (count - 1) : 0
+  const pulses: Array<{ targetMs: number; toleranceMs: number }> = []
+  let target = start
+  for (let i = 0; i < count; i += 1) {
+    pulses.push({ targetMs: Math.round(target), toleranceMs: tolerance })
+    if (i < count - 1) {
+      // Gaps shrink from 1.5x to 0.5x the average: same hit window, faster rhythm late.
+      const ramp = count > 2 ? i / (count - 2) : 0
+      target += avg * (1.5 - ramp)
     }
-  })
-    .map((p) => ({ ...p, targetMs: Math.min(44500, Math.max(500, p.targetMs)) }))
-    .sort((a, b) => a.targetMs - b.targetMs)
+  }
   return pulseEngine.validateConfig({ pulses })
 }
 
@@ -53,24 +55,37 @@ function buildSnap(day: TScheduleDay) {
 
 function buildOrbit(day: TScheduleDay) {
   const count = Math.min(20, Math.max(3, Math.round(num(day.config['targets'], 5))))
-  const windowLen = count > 1 ? Math.min(5000, Math.floor((40000 / (count - 1)) * 0.8)) : 5000
-  const spacing = count > 1 ? (44800 - windowLen - 1500) / (count - 1) : 0
-  const targets = Array.from({ length: count }, (_, i) => {
-    const ramp = count > 1 ? Math.pow(i / (count - 1), 1.25) : 0
-    const openMs = Math.round(1500 + i * spacing)
-    const closeMs = Math.round(openMs + Math.max(800, windowLen * (1 - 0.4 * ramp)))
-    // Align the arc with the marker's sweep so a tap on the arc (or Space at the marker) can score.
-    const angleDeg = Math.round(markerAngleAt((openMs + closeMs) / 2)) % 360
-    return {
-      angleDeg,
-      perfectTolDeg: Math.round(5 - 2 * ramp),
-      goodTolDeg: Math.round(15 - 7 * ramp),
-      edgeTolDeg: Math.round(30 - 12 * ramp),
+  const rpm = Math.min(60, Math.max(6, Math.round(num(day.config['rpm'], 15))))
+  const periodMs = Math.round(60000 / rpm)
+  const perfect = Math.min(12, Math.max(4, Math.round(num(day.config['perfectArc'], 0.18) * 44)))
+  const markerRamp = Math.min(1.5, Math.max(0, num(day.config['speedRamp'], 1)))
+  const start = 1500
+  const end = 42000
+  const avg = count > 1 ? (end - start) / (count - 1) : 0
+  const gaps = Array.from({ length: Math.max(0, count - 1) }, (_, i) => {
+    // Gaps shrink from 1.4x to 0.6x the average: more targets as the round goes on.
+    const ramp = count > 2 ? i / (count - 2) : 0
+    return avg * (1.4 - 0.8 * ramp)
+  })
+  const targets: TOrbitTarget[] = []
+  let open = start
+  for (let i = 0; i < count; i += 1) {
+    const gap = gaps[i] ?? gaps[gaps.length - 1] ?? 1600
+    const windowLen = Math.min(1600, Math.max(700, Math.round(gap * 0.8)))
+    const openMs = Math.round(open)
+    const closeMs = Math.round(openMs + windowLen)
+    const mid = (openMs + closeMs) / 2
+    targets.push({
+      angleDeg: Math.round(markerAngleAt(mid, periodMs, markerRamp, ORBIT_DURATION_MS)) % 360,
+      perfectTolDeg: perfect,
+      goodTolDeg: perfect + 12,
+      edgeTolDeg: perfect + 32,
       openMs,
       closeMs
-    }
-  })
-  return orbitEngine.validateConfig({ targets })
+    })
+    open += gap
+  }
+  return orbitEngine.validateConfig({ targets, markerPeriodMs: periodMs, markerRamp })
 }
 
 function buildRecall(day: TScheduleDay) {
