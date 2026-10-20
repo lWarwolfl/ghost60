@@ -14,6 +14,7 @@ import {
   type TSeqResolution
 } from '@/games/recall/table'
 import { drawSkinAvatar } from '@/lib/game/skin-renderer'
+import { drawGhostGlyph } from '@/lib/game/ghost-renderer'
 import { audio } from '@/lib/game/audio'
 import { gameplayLoop, drawFeedback, recallFeedback, committedGhost } from '@/lib/game/gameplay-motion'
 import { PromptFlash } from '@/components/game/prompt-flash'
@@ -145,10 +146,18 @@ export function RecallRunner({
       let cursor = 0
       const commitments = resolved.map(round => { cursor += round.used; return round.status === 'open' ? null : (taps[cursor - 1]?.t ?? null) })
       const seen = committedGhost(session.ghost?.timeline ?? [], commitments, elapsed)
+      if (session.ghost) {
+        const done = seen.at(-1)
+        const delta = done ? (done.score ?? 0) - (seen.at(-2)?.score ?? 0) : 0
+        session.ghostActionRef.current = done
+          ? `SEQ ${seen.length}/${config.sequences.length} · ${delta > 0 ? 'HIT' : 'MISS'}`
+          : `SEQ 1/${config.sequences.length}`
+      }
       ctx2d.save()
       ctx2d.fillStyle = '#a98bff'
       ctx2d.globalAlpha = 0.45
       seen.forEach((_, i) => ctx2d.fillRect(12 + i * 10, h - 12, 5, 5))
+      if (seen.length) drawGhostGlyph(ctx2d, 22 + seen.length * 10, h - 20, 5, 0.8)
       ctx2d.restore()
       if (statusRef.current) {
         statusRef.current.textContent =

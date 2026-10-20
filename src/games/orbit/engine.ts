@@ -151,11 +151,13 @@ export const orbitEngine: GameModule<TOrbitConfig> = {
     return { gameId: 'orbit', engineVersion: 1, score, timeline } satisfies SanitizedGhost
   },
   simulate({ config, skill, rng }: { seed: string; config: TOrbitConfig; skill: number; rng: SeededRng }) {
-    return config.targets.map((target) => {
-      const t = target.openMs + Math.round(rng.nextFloat() * (target.closeMs - target.openMs))
-      const err = (rng.nextFloat() * 2 - 1) * (1 - skill) * target.edgeTolDeg * 1.5
-      const value = ((Math.round(target.angleDeg + err) % 360) + 360) % 360
-      return { t, type: 'tap', value } satisfies GameInputEvent
-    })
+    return config.targets
+      .map((target) => {
+        const t = target.openMs + Math.round(rng.nextFloat() * (target.closeMs - target.openMs))
+        const err = (rng.nextFloat() * 2 - 1) * (1 - skill) * target.edgeTolDeg * 1.5
+        const value = ((Math.round(target.angleDeg + err) % 360) + 360) % 360
+        return { t, type: 'tap', value } satisfies GameInputEvent
+      })
+      .sort((a, b) => a.t - b.t)
   }
 }

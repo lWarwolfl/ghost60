@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TRunSession } from '@/features/game/hooks/useRunSession.hook'
 import type { TPublicGame } from '@/features/game/store/game-store'
 import { drawSkinAvatar } from '@/lib/game/skin-renderer'
+import { drawGhostGlyph } from '@/lib/game/ghost-renderer'
 import { audio } from '@/lib/game/audio'
 import { gameplayLoop, drawFeedback, committedGhost } from '@/lib/game/gameplay-motion'
 import { PromptFlash } from '@/components/game/prompt-flash'
@@ -215,6 +216,13 @@ export function SnapRunner({ game, session, onReady }: { game: TPublicGame; sess
       }
 
       const seen = committedGhost(session.ghost?.timeline ?? [], session.eventsRef.current.map(e => e.t), elapsed)
+      if (session.ghost) {
+        const done = seen.at(-1)
+        const delta = done ? (done.score ?? 0) - (seen.at(-2)?.score ?? 0) : 0
+        session.ghostActionRef.current = done
+          ? `ROUND ${seen.length}/${config.rounds.length} · ${delta > 0 ? 'HIT' : 'MISS'}`
+          : `ROUND 1/${config.rounds.length}`
+      }
       const progress = seen.at(-1)?.progress
       if (progress !== undefined) {
         ctx2d.save()
@@ -222,6 +230,7 @@ export function SnapRunner({ game, session, onReady }: { game: TPublicGame; sess
         ctx2d.globalAlpha = 0.45
         ctx2d.fillRect(cssW - 6, cssH * (1 - progress), 3, cssH * progress)
         ctx2d.restore()
+        drawGhostGlyph(ctx2d, cssW - 12, cssH * (1 - progress), 4, 0.8)
       }
 
       const verdict = verdictRef.current

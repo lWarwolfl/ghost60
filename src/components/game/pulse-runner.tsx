@@ -6,6 +6,7 @@ import type { TPublicGame } from '@/features/game/store/game-store'
 import { drawSkinAvatar } from '@/lib/game/skin-renderer'
 import { audio } from '@/lib/game/audio'
 import { gameplayLoop, drawFeedback, pulseAssignments, committedGhost } from '@/lib/game/gameplay-motion'
+import { drawGhostGlyph } from '@/lib/game/ghost-renderer'
 import { pulseEngine, type TPulseConfig } from '@/games/pulse/engine'
 
 const APPROACH_MS = 1200
@@ -108,6 +109,26 @@ export function PulseRunner({ game, session, onReady }: { game: TPublicGame; ses
       }
       const assignments = pulseAssignments(pulses, session.eventsRef.current)
       const seen = committedGhost(session.ghost?.timeline ?? [], assignments.map(i => i < 0 ? null : session.eventsRef.current[i].t), elapsed)
+      if (session.ghost) {
+        session.ghostActionRef.current =
+          seen.length < pulses.length ? `PULSE ${seen.length + 1}/${pulses.length}` : 'FINISH'
+      }
+      const ghostPulse = pulses[seen.length]
+      if (ghostPulse) {
+        const approach = approachFor(pulses, seen.length)
+        const rr = radiusAt(elapsed, ghostPulse.targetMs, r, approach)
+        if (elapsed >= ghostPulse.targetMs - approach && elapsed <= ghostPulse.targetMs + 300) {
+          ctx2d.save()
+          ctx2d.strokeStyle = '#a98bff'
+          ctx2d.globalAlpha = 0.55
+          ctx2d.lineWidth = lw * 1.2
+          ctx2d.beginPath()
+          ctx2d.arc(cx, cy, rr, 0, Math.PI * 2)
+          ctx2d.stroke()
+          ctx2d.restore()
+          drawGhostGlyph(ctx2d, cx + Math.min(rr, cx - lw * 4), cy, lw * 1.5, 0.8)
+        }
+      }
       const progress = seen.at(-1)?.progress
       if (progress !== undefined) {
         ctx2d.save()

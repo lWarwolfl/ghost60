@@ -64,6 +64,26 @@ describe('day config builder', () => {
       }
     }
   })
+  it('randomizes orbit angles and overlaps live windows', () => {
+    const orbitDays = schedule.days.filter((d) => d.engine === 'orbit')
+    for (const day of orbitDays) {
+      const config = buildDayConfig(day).config as {
+        targets: Array<{ angleDeg: number; openMs: number; closeMs: number }>
+      }
+      const targets = config.targets
+      expect(targets.some((t, i) => i > 0 && t.openMs < targets[i - 1].closeMs)).toBe(true)
+      const maxLive = Math.max(
+        ...targets.flatMap((target) => [target.openMs, target.closeMs]).map(
+          (ms) => targets.filter((target) => target.openMs <= ms && ms < target.closeMs).length
+        )
+      )
+      expect(maxLive).toBeGreaterThanOrEqual(2)
+      const turns = targets
+        .slice(1)
+        .map((target, i) => ((target.angleDeg - targets[i].angleDeg + 540) % 360) - 180)
+      expect(new Set(turns.map((turn) => Math.round(turn))).size).toBeGreaterThan(3)
+    }
+  })
   it('keeps pulse windows constant while the rhythm accelerates', () => {
     const pulseDays = schedule.days.filter((d) => d.engine === 'pulse')
     expect(pulseDays.length).toBeGreaterThan(0)

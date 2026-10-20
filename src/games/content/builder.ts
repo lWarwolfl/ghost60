@@ -1,7 +1,7 @@
 import { createRng } from '@/games/core/rng'
 import type { TScheduleDay } from '@/games/content/schedule'
-import { orbitEngine, type TOrbitTarget } from '@/games/orbit/engine'
-import { markerAngleAt, ORBIT_DURATION_MS } from '@/games/orbit/table'
+import { orbitEngine, angleDistDeg, type TOrbitTarget } from '@/games/orbit/engine'
+import { markerAngleAt, markerCrossingAt, ORBIT_DURATION_MS } from '@/games/orbit/table'
 import { pulseEngine } from '@/games/pulse/engine'
 import { recallEngine } from '@/games/recall/engine'
 import { shiftEngine } from '@/games/shift/engine'
@@ -59,32 +59,63 @@ function buildOrbit(day: TScheduleDay) {
   const periodMs = Math.round(60000 / rpm)
   const perfect = Math.min(12, Math.max(4, Math.round(num(day.config['perfectArc'], 0.18) * 44)))
   const markerRamp = Math.min(1.5, Math.max(0, num(day.config['speedRamp'], 1)))
-  const start = 1500
-  const end = 42000
-  const avg = count > 1 ? (end - start) / (count - 1) : 0
-  const gaps = Array.from({ length: Math.max(0, count - 1) }, (_, i) => {
-    // Gaps shrink from 1.4x to 0.6x the average: more targets as the round goes on.
-    const ramp = count > 2 ? i / (count - 2) : 0
-    return avg * (1.4 - 0.8 * ramp)
+  const rng = createRng(day.seedKey)
+  const first = 2500
+  const last = 42500
+  const weights = Array.from({ length: Math.max(1, count - 1) }, (_, i) => {
+    const progress = count > 2 ? i / (count - 2) : 0
+    // Random gaps, but later gaps are shorter so the round still tightens up.
+    return (0.55 + rng.nextFloat() * 0.45) * (1.15 - 0.3 * progress)
   })
-  const targets: TOrbitTarget[] = []
-  let open = start
-  for (let i = 0; i < count; i += 1) {
-    const gap = gaps[i] ?? gaps[gaps.length - 1] ?? 1600
-    const windowLen = Math.min(1600, Math.max(700, Math.round(gap * 0.8)))
-    const openMs = Math.round(open)
-    const closeMs = Math.round(openMs + windowLen)
-    const mid = (openMs + closeMs) / 2
-    targets.push({
-      angleDeg: Math.round(markerAngleAt(mid, periodMs, markerRamp, ORBIT_DURATION_MS)) % 360,
+  const total = weights.reduce((sum, weight) => sum + weight, 0) || 1
+  let cursor = first
+  const wanted = [first]
+  for (const weight of weights) {
+    cursor += ((last - first) * weight) / total
+    wanted.push(cursor)
+  }
+
+  const picked: Array<{ midMs: number; angleDeg: number }> = []
+  for (const desired of wanted) {
+    let choice: { midMs: number; angleDeg: number } | null = null
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+      const angleDeg = Math.floor(rng.nextFloat() * 360)
+      const midMs = markerCrossingAt(angleDeg, desired, periodMs, markerRamp, ORBIT_DURATION_MS)
+      if (midMs < 2000 || midMs > 43000) continue
+      if (picked.some((other) => Math.abs(other.midMs - midMs) < 900)) continue
+      // Arcs that can be live together must stay far enough apart to read clearly.
+      if (
+        picked.some(
+          (other) => Math.abs(other.midMs - midMs) < 2800 && angleDistDeg(other.angleDeg, angleDeg) < 80
+        )
+      )
+        continue
+      choice = { midMs, angleDeg }
+      break
+    }
+    if (!choice) {
+      const midMs = Math.min(43000, Math.max(2000, desired))
+      const angleDeg = Math.round(markerAngleAt(midMs, periodMs, markerRamp, ORBIT_DURATION_MS)) % 360
+      choice = { midMs, angleDeg }
+    }
+    picked.push(choice)
+  }
+  picked.sort((a, b) => a.midMs - b.midMs)
+
+  const targets: TOrbitTarget[] = picked.map(({ midMs, angleDeg }) => {
+    // Long windows overlap, so 2-3 arcs can be live at once.
+    const width = 2200 + Math.round(rng.nextFloat() * 6) * 100
+    const mid = Math.round(midMs)
+    const openMs = mid - width / 2
+    return {
+      angleDeg,
       perfectTolDeg: perfect,
       goodTolDeg: perfect + 12,
       edgeTolDeg: perfect + 32,
       openMs,
-      closeMs
-    })
-    open += gap
-  }
+      closeMs: openMs + width
+    }
+  })
   return orbitEngine.validateConfig({ targets, markerPeriodMs: periodMs, markerRamp })
 }
 

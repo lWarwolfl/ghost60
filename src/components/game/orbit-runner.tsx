@@ -19,6 +19,7 @@ import {
 import { drawSkinAvatar } from '@/lib/game/skin-renderer'
 import { audio } from '@/lib/game/audio'
 import { gameplayLoop, drawFeedback, committedGhost } from '@/lib/game/gameplay-motion'
+import { drawGhostGlyph } from '@/lib/game/ghost-renderer'
 
 function fitCanvas(canvas: HTMLCanvasElement) {
   const dpr = Math.min(2, window.devicePixelRatio || 1)
@@ -136,11 +137,36 @@ export function OrbitRunner({
 
       const assigned = assignTaps(targets, taps)
       const history = committedGhost(session.ghost?.timeline ?? [], assigned.map(i => i < 0 ? null : taps[i].t), elapsed)
+      if (session.ghost) {
+        session.ghostActionRef.current =
+          history.length < targets.length ? `TARGET ${history.length + 1}/${targets.length}` : 'FINISH'
+      }
       ctx2d.save()
       ctx2d.globalAlpha = 0.45
       ctx2d.fillStyle = '#a98bff'
       history.forEach((_, i) => ctx2d.fillRect(12 + i * 8, h - 12, 4, 4))
       ctx2d.restore()
+      const ghostNext = targets[Math.min(history.length, targets.length - 1)]
+      if (ghostNext && elapsed >= ghostNext.openMs - ORBIT_ARC_LEAD_MS) {
+        const ga = ghostNext.angleDeg * RAD
+        drawGhostGlyph(ctx2d, cx + (r + lw * 5) * Math.cos(ga), cy + (r + lw * 5) * Math.sin(ga), lw * 1.8)
+      }
+      const ghostDone = history.length - 1
+      if (ghostDone >= 0) {
+        const tapIndex = assigned[ghostDone]
+        const at = tapIndex >= 0 ? taps[tapIndex].t : -1
+        if (at >= 0 && elapsed - at < 260) {
+          const ga = targets[ghostDone].angleDeg * RAD
+          ctx2d.save()
+          ctx2d.globalAlpha = 0.6 * (1 - (elapsed - at) / 260)
+          ctx2d.strokeStyle = '#a98bff'
+          ctx2d.lineWidth = lw * 2
+          ctx2d.beginPath()
+          ctx2d.arc(cx, cy, r, ga - 0.35, ga + 0.35)
+          ctx2d.stroke()
+          ctx2d.restore()
+        }
+      }
       const seen = visibleRivalNotches(targets, taps, rivalNotches)
       ctx2d.fillStyle = 'rgba(169,139,255,0.45)'
       for (const n of seen) {

@@ -5,6 +5,7 @@ import {
   angleFromPoint,
   assignTaps,
   markerAngleAt,
+  markerCrossingAt,
   visibleRivalNotches
 } from '@/games/orbit/table'
 
@@ -147,6 +148,13 @@ describe('orbit table helpers', () => {
   it('speeds the marker up across a ramped round', () => {
     const step = (t: number) => (markerAngleAt(t, 3000, 1) - markerAngleAt(t - 500, 3000, 1) + 360) % 360
     expect(step(44500)).toBeGreaterThan(step(1500))
+  })
+  it('finds the marker crossing nearest a time', () => {
+    for (const t of [2500, 12000, 30000, 42000]) {
+      const angle = markerAngleAt(t, 3333, 1)
+      const crossing = markerCrossingAt(angle, t, 3333, 1)
+      expect(Math.abs(crossing - t)).toBeLessThan(2)
+    }
   })
   it('converts tap points to compass degrees', () => {
     expect(angleFromPoint(1, 0, 0, 0)).toBe(0)

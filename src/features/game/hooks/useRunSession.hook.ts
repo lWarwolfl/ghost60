@@ -36,6 +36,7 @@ export function useRunSession(game: TPublicGame, token: string, ready = true) {
   const [error, setError] = useState<string | null>(null)
   const eventsRef = useRef<GameInputEvent[]>([])
   const scoreRef = useRef(0)
+  const ghostActionRef = useRef<string | null>(null)
   const visRef = useRef(0)
   const runStartRef = useRef(0)
   const consumeRef = useRef<(() => Promise<boolean>) | null>(null)
@@ -252,7 +253,7 @@ export function useRunSession(game: TPublicGame, token: string, ready = true) {
   }, [doSubmit, token])
 
   return useMemo(
-    () => ({ phase, result, error, eventsRef, scoreRef, reportScore, logEvent, getElapsed, retryPending, reduced, skin, ghost, ghostMeta }),
+    () => ({ phase, result, error, eventsRef, scoreRef, ghostActionRef, reportScore, logEvent, getElapsed, retryPending, reduced, skin, ghost, ghostMeta }),
     [phase, result, error, logEvent, getElapsed, retryPending, reduced, skin, ghost, ghostMeta, reportScore]
   )
 }

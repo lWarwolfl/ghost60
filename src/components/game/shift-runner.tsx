@@ -89,6 +89,13 @@ export function ShiftRunner({
         )
       }
       const seen = committedGhost(session.ghost?.timeline ?? [], session.eventsRef.current.map(e => e.t), elapsed)
+      if (session.ghost) {
+        const done = seen.at(-1)
+        const delta = done ? (done.score ?? 0) - (seen.at(-2)?.score ?? 0) : 0
+        session.ghostActionRef.current = done
+          ? `CARD ${seen.length}/${cards.length} · ${delta > 0 ? 'HIT' : 'MISS'}`
+          : `CARD 1/${cards.length}`
+      }
       if (rivalRef.current) rivalRef.current.textContent = seen.length ? `GHOST ${seen.length}/${cards.length}` : ''
       const verdict = verdictRef.current
       if (departureRef.current && verdict) {

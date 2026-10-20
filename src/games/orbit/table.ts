@@ -19,6 +19,28 @@ export function markerAngleAt(
   return a < 0 ? a + 360 : a
 }
 
+// Time the marker reaches angleDeg nearest to nearMs. Lets targets use random angles
+// while still lining their midpoint up with the moving marker.
+export function markerCrossingAt(
+  angleDeg: number,
+  nearMs: number,
+  periodMs = ORBIT_MARKER_PERIOD_MS,
+  ramp = 0,
+  durationMs = ORBIT_DURATION_MS
+) {
+  const period = Math.max(1, periodMs)
+  const duration = Math.max(1, durationMs)
+  const near = Math.max(0, nearMs)
+  const turn = Math.round(
+    (near + (ramp * near * near) / (2 * duration)) / period - (((angleDeg % 360) + 360) % 360) / 360
+  )
+  const unwrappedMs = (Math.max(0, turn) + (((angleDeg % 360) + 360) % 360) / 360) * period
+  if (ramp <= 0) return Math.min(duration, Math.max(0, unwrappedMs))
+  const a = ramp / (2 * duration)
+  const t = (-1 + Math.sqrt(1 + 4 * a * unwrappedMs)) / (2 * a)
+  return Math.min(duration, Math.max(0, t))
+}
+
 export function angleFromPoint(px: number, py: number, cx: number, cy: number) {
   const a = (Math.atan2(py - cy, px - cx) * 180) / Math.PI
   return a < 0 ? a + 360 : a

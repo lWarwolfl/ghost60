@@ -131,10 +131,14 @@ export function TraceRunner({
       })
 
       if (rivalCache.w !== w || rivalCache.h !== h) rivalCache = { w, h, points: [...rivalPath, ...(session.ghost?.timeline.flatMap(point => point.p ? [{ t: point.t, p: point.p }] : []) ?? [])].map(point => { const s = toScreen(point.p, view); return { x: s.x / w, y: s.y / h, t: point.t } }) }
-      drawSkinTrail(ctx2d, {
-        points: rivalCache.points,
-        skin: session.skin, elapsedMs: elapsed, width: w, height: h, reduced: session.reduced, rival: true
-      })
+      const playerClock = feedback.samples.at(-1)?.t ?? 0
+      if (session.ghost) {
+        session.ghostActionRef.current = gates.length ? `GATE ${passed}/${gates.length}` : null
+        drawSkinTrail(ctx2d, {
+          points: rivalCache.points,
+          skin: session.skin, elapsedMs: playerClock, width: w, height: h, reduced: session.reduced, rival: true
+        })
+      }
       const samples = feedback.samples
       for (let i = Math.max(1, samples.length - 96); i < samples.length; i += 1) {
         const p = samples[i]

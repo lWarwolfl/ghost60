@@ -12,6 +12,7 @@ export function GhostRace({ session, ghost }: { session: TRunSession; ghost: TGa
   const wispRef = useRef<HTMLSpanElement>(null)
   const youScoreRef = useRef<HTMLSpanElement>(null)
   const ghostScoreRef = useRef<HTMLSpanElement>(null)
+  const actionRef = useRef<HTMLSpanElement>(null)
   const target = ghost?.targetScore ?? 0
   useEffect(() => {
     if (!ghost) return
@@ -28,6 +29,7 @@ export function GhostRace({ session, ghost }: { session: TRunSession; ghost: TGa
       place(wispRef.current, theirs.score)
       if (youScoreRef.current) youScoreRef.current.textContent = String(yours)
       if (ghostScoreRef.current) ghostScoreRef.current.textContent = String(theirs.score)
+      if (actionRef.current) actionRef.current.textContent = session.ghostActionRef.current ?? ''
       if (rootRef.current) rootRef.current.dataset.lead = yours === theirs.score ? 'even' : yours > theirs.score ? 'you' : 'ghost'
       raf = requestAnimationFrame(tick)
     }
@@ -51,6 +53,11 @@ export function GhostRace({ session, ghost }: { session: TRunSession; ghost: TGa
           {ghost.handle} <b ref={ghostScoreRef} className="game-race-score">0</b>
         </span>
       </div>
+      <span
+        ref={actionRef}
+        className="text-spectral-violet block min-h-3 text-[9px] tracking-[0.14em] uppercase"
+        aria-hidden="true"
+      />
       <div className="game-race-track" aria-hidden="true">
         <span className="game-race-rail" />
         <span ref={wispRef} className="game-race-marker game-race-wisp">
