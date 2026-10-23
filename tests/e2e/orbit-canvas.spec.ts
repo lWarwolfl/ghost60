@@ -99,8 +99,8 @@ test('orbit canvas: seeded challenge race plays end-to-end', async ({ browser })
       await page.waitForTimeout(400)
     }
     await expect(page.getByText(/IT GOT AWAY|YOU CAUGHT IT|DEAD HEAT/)).toBeVisible({ timeout: 90000 })
-    await page.getByText('SEND REVENGE').click()
-    await expect(page.getByText('SHARE GHOST LINK')).toBeVisible({ timeout: 15000 })
+    await page.getByRole('button', { name: 'SHARE REVENGE', exact: true }).click()
+    await expect(page.getByRole('dialog', { name: 'Leave a trace.' })).toBeVisible({ timeout: 15000 })
     expect(errors).toEqual([])
     await ctx.close()
   } finally {

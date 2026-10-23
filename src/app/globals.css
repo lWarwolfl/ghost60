@@ -682,3 +682,28 @@ html[data-reduced-motion="true"] .game-prompt span { animation: prompt-fade 1000
 html[data-motion-paused="true"], html[data-motion-paused="true"] *, html[data-motion-paused="true"] *::before, html[data-motion-paused="true"] *::after,
 .brand-vector[data-motion-paused="true"], .brand-vector[data-motion-paused="true"] *,
 html[data-motion-paused="true"] .brand-vector[data-vector][data-motion] [data-part] { animation-play-state: paused !important; }
+
+/* Hold action scores at their point of impact before fading them out. */
+.action-feedback {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -100%);
+  padding: 5px 10px;
+  border-radius: 12px;
+  background: rgba(7, 9, 18, 0.88);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
+  font: 800 clamp(26px, 5vw, 36px)/1.1 var(--font-archivo), sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  animation: action-points 1600ms ease-out both;
+}
+.action-feedback small { font: 600 10px/1.4 var(--font-space-grotesk), sans-serif; letter-spacing: 0.08em; }
+@keyframes action-points {
+  0%, 65% { opacity: 1; transform: translate(-50%, -100%); }
+  100% { opacity: 0; transform: translate(-50%, calc(-100% - 18px)); }
+}
+.action-feedback-static { animation: none; }
+@media (prefers-reduced-motion: reduce) { .action-feedback { animation: none; } }

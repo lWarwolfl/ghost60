@@ -11,8 +11,11 @@ test('ghost+ locked: every paid surface denies free users server-side', async ({
   await page.request.post('/api/auth/sign-in/anonymous', { data: {} })
 
   const pastSelf = await page.request.post('/api/game/session', { data: { mode: 'past_self' } })
-  expect(pastSelf.status()).toBe(403)
-  expect((await pastSelf.json()).error).toBe('ghost-plus-locked')
+  expect(pastSelf.status()).toBe(400) // A source run is required.
+  const today = await (await page.request.get('/api/game/today')).json()
+  const practice = await page.request.post('/api/game/session', { data: { mode: 'practice', dailyGameId: today.id } })
+  expect(practice.status()).toBe(403)
+  expect((await practice.json()).error).toBe('ghost-plus-locked')
 
   const archive = await page.request.get('/api/archive')
   expect(archive.ok()).toBeTruthy()
@@ -57,7 +60,7 @@ test('ghost+ locked: every paid surface denies free users server-side', async ({
   await expect(page.getByText('Last 7 days')).toBeVisible()
   await page.goto('/ghost-plus')
   await page.waitForLoadState('networkidle')
-  await expect(page.getByText('Locked in this phase')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'KEEP YOUR GHOST MOVING.' })).toBeVisible()
 
   expect(errors).toEqual([])
   await ctx.close()

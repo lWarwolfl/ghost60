@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { db } from '@/drizzle'
 import { DailyGame, Run } from '@/drizzle/schema'
 import { getCurrentUser } from '@/lib/auth/server'
+import { ownedReplayGhost } from '@/lib/game/ghost-playback'
+import type { GameInputEvent } from '@/games/core/game-module'
 import { getGame } from '@/games/registry'
 
 export const dynamic = 'force-dynamic'
@@ -38,12 +40,7 @@ export async function GET(req: Request) {
         durationMs: mod.durationMs(config as never)
       },
       events: run.eventStream,
-      ghost: mod.sanitizeGhost({
-        seed: game.seed,
-        config: config as never,
-        events: run.eventStream as never,
-        score: run.validatedScore
-      })
+      ghost: ownedReplayGhost(game.gameId as 'pulse', game.seed, config, run.eventStream as GameInputEvent[], run.validatedScore)
     }, { headers: { 'Cache-Control': 'private, no-store' } })
   } catch {
     return NextResponse.json({ error: 'replay-unavailable' }, { status: 500 })

@@ -101,19 +101,24 @@ export const traceEngine: GameModule<TTraceConfig> = {
   },
   sanitizeGhost({ config, events, score }) {
     const samples = events.filter(hasPoint)
-    const step = Math.max(1, Math.floor(samples.length / 60))
+    const step = Math.max(1, Math.ceil((samples.length - 1) / 60))
     let gate = 0
-    const timeline = samples
-      .filter((_, i) => i % step === 0)
-      .map((e, i, arr) => {
-        let delta = 0
-        const next = config.gates[gate]
-        if (next && dist(e.p, next) <= next.r) {
-          delta = GATE_POINTS
-          gate += 1
-        }
-        return { t: e.t, progress: (i + 1) / arr.length, p: e.p, delta }
-      })
+    let deviation = 0
+    let previous = 0
+    const timeline: SanitizedGhost['timeline'] = []
+    for (let i = 0; i < samples.length; i += 1) {
+      const event = samples[i]
+      const next = config.gates[gate]
+      if (next && dist(event.p, next) <= next.r) gate += 1
+      deviation += pathDeviation([event.p], config.gates)
+      const precision = Math.round(1200 * Math.max(0, 1 - deviation / (i + 1) / config.corridorHalf))
+      const finished = gate === config.gates.length && event.type === 'pointer_up'
+      const current = gate * GATE_POINTS + precision + (finished ? config.completionBonus : 0)
+      if (i % step === 0 || i === samples.length - 1) {
+        timeline.push({ t: event.t, progress: gate / config.gates.length, p: event.p, score: current, delta: current - previous })
+        previous = current
+      }
+    }
     return { gameId: 'trace', engineVersion: 1, score, timeline } satisfies SanitizedGhost
   },
   simulate({ config, skill, rng }: { seed: string; config: TTraceConfig; skill: number; rng: SeededRng }) {

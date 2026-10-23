@@ -56,10 +56,9 @@ test('challenge loop: create, race, revenge', async ({ browser }) => {
     finished = (await page.getByText(/IT GOT AWAY|YOU CAUGHT IT|DEAD HEAT/).count()) > 0
   }
   expect(finished).toBe(true)
-  await page.getByText('SEND REVENGE').click()
-  await expect(page.getByText('SHARE GHOST LINK')).toBeVisible({ timeout: 15000 })
-  const urlText = await page.getByText(/\/challenge\//).first().textContent()
-  expect(urlText).toContain('/challenge/')
+  await page.getByRole('button', { name: 'SHARE REVENGE', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Leave a trace.' })).toBeVisible({ timeout: 15000 })
+  await expect(page.getByRole('button', { name: 'COPY LINK', exact: true })).toBeVisible()
   expect(errors).toEqual([])
   await ctx.close()
   await creatorCtx.close()

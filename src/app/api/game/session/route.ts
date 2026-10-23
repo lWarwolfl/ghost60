@@ -12,6 +12,7 @@ import { currentSpecialGame, devGame } from '@/lib/game/studio'
 import { RATE_LIMITS, checkRateLimit, rateLimitedResponse } from '@/lib/game/rate-limit'
 import { hashToken, signSessionToken } from '@/lib/game/token'
 import { createRng } from '@/games/core/rng'
+import { ownedReplayGhost } from '@/lib/game/ghost-playback'
 import type { GameInputEvent, SanitizedGhost } from '@/games/core/game-module'
 import { getGame } from '@/games/registry'
 
@@ -27,7 +28,9 @@ function raceGhost(game: TDailyGame, config: unknown, source?: { eventStream: un
     }
     if (!events?.length) return null
     const targetScore = source?.validatedScore ?? mod.scoreRun({ seed: game.seed, config: config as never, events, visibilityInterruptions: 0 }).score
-    const ghost = mod.sanitizeGhost({ seed: game.seed, config: config as never, events: events as never, score: targetScore })
+    const ghost = source
+      ? ownedReplayGhost(game.gameId as 'pulse', game.seed, config, events, targetScore)
+      : mod.sanitizeGhost({ seed: game.seed, config: config as never, events: events as never, score: targetScore })
     return { handle: source ? 'YOUR GHOST' : 'SPECTER', targetScore, ghost }
   } catch {
     return null
@@ -168,8 +171,7 @@ export async function POST(req: Request) {
   if (mode === 'past_self') {
     const source = (await tx.select().from(Run).where(and(eq(Run.id, sourceRunId as string), eq(Run.userId, user.id), eq(Run.valid, true))).orderBy(desc(Run.createdAt)))[0]
     if (!source || source.dailyGameId !== dailyGameId) return NextResponse.json({ error: 'source-run-unavailable' }, { status: 404 })
-    const mod = getGame(targetGame.gameId as 'pulse')
-    pastSelf = { runId: source.id, targetScore: source.validatedScore, ghost: mod.sanitizeGhost({ seed: targetGame.seed, config: config as never, events: source.eventStream as never, score: source.validatedScore }) }
+    pastSelf = { runId: source.id, targetScore: source.validatedScore, ghost: ownedReplayGhost(targetGame.gameId as 'pulse', targetGame.seed, config, source.eventStream as GameInputEvent[], source.validatedScore) }
   }
   let ghost: TGhostView | null = null
   if (challenge?.ghost) ghost = { handle: challenge.handle, targetScore: challenge.targetScore, ghost: challenge.ghost }
