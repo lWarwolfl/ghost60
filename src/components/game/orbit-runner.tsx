@@ -9,16 +9,17 @@ import {
   ORBIT_ARC_LEAD_MS,
   ORBIT_MARKER_PERIOD_MS,
   ORBIT_VERDICT_MS,
-  angleFromPoint,
   assignTaps,
   markerAngleAt,
   toIntAngle,
   visibleRivalNotches,
-  type TRivalNotch
+  type TRivalNotch,
 } from '@/games/orbit/table'
 import { drawSkinAvatar } from '@/lib/game/skin-renderer'
+import { ActionFeedback, useActionFeedback } from '@/components/game/action-feedback'
+import { elapsedGhost, ghostEventsAt } from '@/lib/game/ghost-playback'
 import { audio } from '@/lib/game/audio'
-import { gameplayLoop, drawFeedback, committedGhost, signedPoints } from '@/lib/game/gameplay-motion'
+import { gameplayLoop, isGameInputTarget, signedPoints } from '@/lib/game/gameplay-motion'
 import { drawGhostGlyph } from '@/lib/game/ghost-renderer'
 
 function fitCanvas(canvas: HTMLCanvasElement) {
@@ -40,7 +41,7 @@ export function OrbitRunner({
   session,
   onReady,
   rivalNotches = NO_NOTCHES,
-  rivalScore = null
+  rivalScore = null,
 }: {
   game: TPublicGame
   session: TRunSession
@@ -49,12 +50,16 @@ export function OrbitRunner({
   rivalScore?: number | null
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const actionFeedback = useActionFeedback()
   const timeRef = useRef<HTMLSpanElement>(null)
   const avatarRef = useRef<HTMLCanvasElement>(null)
   const verdictCache = useRef<{ count: number; verdicts: TVerdict[] }>({ count: -1, verdicts: [] })
   const [score, setScore] = useState(0)
   const [done, setDone] = useState(0)
-  const config = useMemo(() => orbitEngine.validateConfig(game.config) as TOrbitConfig, [game.config])
+  const config = useMemo(
+    () => orbitEngine.validateConfig(game.config) as TOrbitConfig,
+    [game.config]
+  )
   const targets = config.targets
   const markerPeriod = config.markerPeriodMs ?? ORBIT_MARKER_PERIOD_MS
   const markerRamp = config.markerRamp ?? 0
@@ -79,7 +84,14 @@ export function OrbitRunner({
       const avatar = avatarRef.current?.getContext('2d')
       if (avatar) {
         avatar.clearRect(0, 0, 32, 32)
-        drawSkinAvatar(avatar, { skin: session.skin, x: 16, y: 16, size: 25, elapsedMs: elapsed, reduced: session.reduced })
+        drawSkinAvatar(avatar, {
+          skin: session.skin,
+          x: 16,
+          y: 16,
+          size: 25,
+          elapsedMs: elapsed,
+          reduced: session.reduced,
+        })
       }
       const taps = session.eventsRef.current
       const { w, h } = dims
@@ -100,21 +112,46 @@ export function OrbitRunner({
         verdictCache.current = {
           count: taps.length,
           verdicts: assigned.map((tapIndex, i) => {
-            if (tapIndex === -1) return { band: 0, at: -1, angle: 0, premature: false, missed: false }
+            if (tapIndex === -1)
+              return { band: 0, at: -1, angle: 0, premature: false, missed: false }
             const tap = taps[tapIndex] as Extract<GameInputEvent, { type: 'tap' }>
             const target = targets[i]
-            if (tap.t < target.openMs) return { band: 0, at: tap.t, angle: tap.value ?? target.angleDeg, premature: true, missed: false }
-            if (tap.t > target.closeMs) return { band: 0, at: tap.t, angle: tap.value ?? target.angleDeg, premature: false, missed: true }
+            if (tap.t < target.openMs)
+              return {
+                band: 0,
+                at: tap.t,
+                angle: tap.value ?? target.angleDeg,
+                premature: true,
+                missed: false,
+              }
+            if (tap.t > target.closeMs)
+              return {
+                band: 0,
+                at: tap.t,
+                angle: tap.value ?? target.angleDeg,
+                premature: false,
+                missed: true,
+              }
             const angle = tap.value === undefined ? target.angleDeg : tap.value
-            return { band: orbitBand(angleDistDeg(angle, target.angleDeg), target), at: tap.t, angle: tap.value ?? target.angleDeg, premature: false, missed: false }
-          })
+            return {
+              band: orbitBand(angleDistDeg(angle, target.angleDeg), target),
+              at: tap.t,
+              angle: tap.value ?? target.angleDeg,
+              premature: false,
+              missed: false,
+            }
+          }),
         }
       }
       const verdicts = verdictCache.current.verdicts
 
       for (let i = 0; i < targets.length; i += 1) {
         const target = targets[i]
-        if (elapsed < target.openMs - ORBIT_ARC_LEAD_MS || elapsed > target.closeMs + ORBIT_VERDICT_MS) continue
+        if (
+          elapsed < target.openMs - ORBIT_ARC_LEAD_MS ||
+          elapsed > target.closeMs + ORBIT_VERDICT_MS
+        )
+          continue
         const live = elapsed >= target.openMs && elapsed <= target.closeMs
         const base = target.angleDeg * RAD
         ctx2d.lineCap = 'round'
@@ -135,47 +172,35 @@ export function OrbitRunner({
         ctx2d.stroke()
       }
 
-      const assigned = assignTaps(targets, taps)
-      const history = committedGhost(session.ghost?.timeline ?? [], assigned.map(i => i < 0 ? null : taps[i].t), elapsed)
+      const history = elapsedGhost(session.ghost, elapsed)
       if (session.ghost) {
-        const done = history.at(-1)
-        const delta = done ? (done.delta ?? (done.score ?? 0) - (history.at(-2)?.score ?? 0)) : 0
-        session.ghostActionRef.current = done
-          ? `TARGET ${history.length}/${targets.length} · ${signedPoints(delta)}`
-          : `TARGET 1/${targets.length}`
-      }
-      ctx2d.save()
-      ctx2d.globalAlpha = 0.45
-      ctx2d.fillStyle = '#a98bff'
-      history.forEach((_, i) => ctx2d.fillRect(12 + i * 8, h - 12, 4, 4))
-      ctx2d.restore()
-      const ghostNext = targets[Math.min(history.length, targets.length - 1)]
-      if (ghostNext && elapsed >= ghostNext.openMs - ORBIT_ARC_LEAD_MS) {
-        const ga = ghostNext.angleDeg * RAD
-        drawGhostGlyph(ctx2d, cx + (r + lw * 5) * Math.cos(ga), cy + (r + lw * 5) * Math.sin(ga), lw * 1.8)
-      }
-      const ghostDone = history.length - 1
-      if (ghostDone >= 0) {
-        const tapIndex = assigned[ghostDone]
-        const at = tapIndex >= 0 ? taps[tapIndex].t : -1
-        if (at >= 0 && elapsed - at < 260) {
-          const ga = targets[ghostDone].angleDeg * RAD
-          ctx2d.save()
-          ctx2d.globalAlpha = 0.6 * (1 - (elapsed - at) / 260)
-          ctx2d.strokeStyle = '#a98bff'
-          ctx2d.lineWidth = lw * 2
-          ctx2d.beginPath()
-          ctx2d.arc(cx, cy, r, ga - 0.35, ga + 0.35)
-          ctx2d.stroke()
-          ctx2d.restore()
-        }
+        const action = ghostEventsAt(session.ghost, elapsed).at(-1)
+        const last = history.at(-1)
+        session.ghostActionRef.current = `TARGET ${history.length}/${session.ghost.replay?.length ?? targets.length} · ${signedPoints(last?.delta ?? 0)}`
+        const ghostAngle =
+          action?.type === 'tap' && action.value !== undefined && elapsed - action.t < 900
+            ? action.value
+            : markerAngleAt(elapsed, markerPeriod, markerRamp, durationMs)
+        const ga = ghostAngle * RAD
+        drawGhostGlyph(
+          ctx2d,
+          cx + (r + lw * 4) * Math.cos(ga),
+          cy + (r + lw * 4) * Math.sin(ga),
+          lw * 2.8
+        )
       }
       const seen = visibleRivalNotches(targets, taps, rivalNotches)
       ctx2d.fillStyle = 'rgba(169,139,255,0.45)'
       for (const n of seen) {
         const a = n.angleDeg * RAD
         ctx2d.beginPath()
-        ctx2d.arc(cx + (r + lw * 3) * Math.cos(a), cy + (r + lw * 3) * Math.sin(a), lw * 1.1, 0, Math.PI * 2)
+        ctx2d.arc(
+          cx + (r + lw * 3) * Math.cos(a),
+          cy + (r + lw * 3) * Math.sin(a),
+          lw * 1.1,
+          0,
+          Math.PI * 2
+        )
         ctx2d.fill()
       }
 
@@ -189,9 +214,11 @@ export function OrbitRunner({
         const v = verdicts[i]
         const age = elapsed - v.at
         if (v.at < 0 || age < 0 || age >= 260) continue
-        const kind = v.premature || v.missed || !v.band ? 'miss' : v.band >= 1000 ? 'perfect' : 'good'
+        const kind =
+          v.premature || v.missed || !v.band ? 'miss' : v.band >= 1000 ? 'perfect' : 'good'
         if (age < 150) {
-          ctx2d.strokeStyle = kind === 'perfect' ? '#c7ff5e' : kind === 'good' ? '#62f7e6' : '#ff668f'
+          ctx2d.strokeStyle =
+            kind === 'perfect' ? '#c7ff5e' : kind === 'good' ? '#62f7e6' : '#ff668f'
           ctx2d.lineWidth = lw * 2
           const a = v.angle * RAD
           ctx2d.beginPath()
@@ -200,10 +227,15 @@ export function OrbitRunner({
           ctx2d.stroke()
           const target = targets[i]
           ctx2d.beginPath()
-          ctx2d.arc(cx, cy, r, (target.angleDeg - target.edgeTolDeg) * RAD, (target.angleDeg + target.edgeTolDeg) * RAD)
+          ctx2d.arc(
+            cx,
+            cy,
+            r,
+            (target.angleDeg - target.edgeTolDeg) * RAD,
+            (target.angleDeg + target.edgeTolDeg) * RAD
+          )
           ctx2d.stroke()
         }
-        drawFeedback(ctx2d, { x: cx, y: cy + r * 1.25, radius: lw * 4, age, duration: 420, reduced: session.reduced, kind, label: v.premature ? 'EARLY -100' : v.missed ? 'LATE' : kind === 'miss' ? 'MISS' : `+${v.band}` })
       }
 
       if (timeRef.current) {
@@ -217,7 +249,7 @@ export function OrbitRunner({
       stop()
       ro.disconnect()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- countdown ticks must not re-init the canvas
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- countdown ticks must not re-init the canvas
   }, [durationMs, targets, markerPeriod, markerRamp, rivalNotches, session.skin, session.reduced])
 
   const tap = (clientX?: number, clientY?: number) => {
@@ -225,23 +257,29 @@ export function OrbitRunner({
     audio.unlock()
     const canvas = canvasRef.current
     const elapsed = session.getElapsed()
-    let value: number
+    const value = toIntAngle(markerAngleAt(elapsed, markerPeriod, markerRamp, durationMs))
     let p: { x: number; y: number } | undefined
     if (canvas && clientX !== undefined && clientY !== undefined) {
       const rect = canvas.getBoundingClientRect()
-      const cx = rect.left + rect.width / 2
-      const cy = rect.top + rect.height / 2
-      value = toIntAngle(angleFromPoint(clientX, clientY, cx, cy))
       p = {
         x: Math.min(10000, Math.max(0, Math.round(((clientX - rect.left) / rect.width) * 10000))),
-        y: Math.min(10000, Math.max(0, Math.round(((clientY - rect.top) / rect.height) * 10000)))
+        y: Math.min(10000, Math.max(0, Math.round(((clientY - rect.top) / rect.height) * 10000))),
       }
-    } else {
-      value = toIntAngle(markerAngleAt(elapsed, markerPeriod, markerRamp, durationMs))
     }
     if (session.logEvent(p ? { type: 'tap', p, value } : { type: 'tap', value }) < 0) return
     const events = session.eventsRef.current
-    const res = orbitEngine.scoreRun({ seed: game.seed, config, events, visibilityInterruptions: 0 })
+    const res = orbitEngine.scoreRun({
+      seed: game.seed,
+      config,
+      events,
+      visibilityInterruptions: 0,
+    })
+    const radius = canvas ? Math.min(canvas.width, canvas.height) * 0.32 : 0
+    actionFeedback.show({
+      x: canvas ? 0.5 + (radius * Math.cos(value * RAD)) / canvas.width : 0.5,
+      y: canvas ? 0.5 + (radius * Math.sin(value * RAD)) / canvas.height : 0.5,
+      delta: res.score - session.scoreRef.current,
+    })
     setScore(res.score)
     session.reportScore(res.score)
     setDone(res.metrics.hits as number)
@@ -266,7 +304,8 @@ export function OrbitRunner({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'Space' || e.code === 'Enter') {
+      if (!isGameInputTarget(e.target)) return
+      if (!e.repeat && (e.code === 'Space' || e.code === 'Enter')) {
         e.preventDefault()
         tap()
       }
@@ -278,7 +317,13 @@ export function OrbitRunner({
   return (
     <div className="flex flex-1 flex-col">
       <div className="game-hud">
-        <canvas ref={avatarRef} width={32} height={32} className="size-8 shrink-0" aria-hidden="true" />
+        <canvas
+          ref={avatarRef}
+          width={32}
+          height={32}
+          className="size-8 shrink-0"
+          aria-hidden="true"
+        />
         <span ref={timeRef} className="game-timer">
           {(durationMs / 1000).toFixed(1)}s
         </span>
@@ -290,20 +335,29 @@ export function OrbitRunner({
         </span>
       </div>
       <div className="game-subhud">
-        <span className="text-[10px] tracking-[0.16em] text-spectral-violet uppercase">
+        <span className="text-spectral-violet text-[10px] tracking-[0.16em] uppercase">
           {rivalScore !== null ? `Rival ${rivalScore}` : 'Violet = not live · wait for cyan'}
         </span>
-        <span className="text-[10px] tracking-[0.16em] text-ghost-muted uppercase">Space taps where the marker is</span>
+        <span className="text-ghost-muted text-[10px] tracking-[0.16em] uppercase">
+          Tap when the dot meets cyan
+        </span>
       </div>
-      <canvas
-        ref={canvasRef}
-        role="application"
-        aria-label="Orbit field. Violet arcs are not live. Wait for cyan, then tap inside the arc. Early taps cost points."
-        style={{ opacity: session.phase === 'finishing' ? 0.6 : 1, transition: 'opacity 120ms linear' }}
-        className="game-arena min-h-75 w-full flex-1 touch-none"
-        onPointerDown={(e) => tap(e.clientX, e.clientY)}
-      />
-      <p className="game-hint">Wait for cyan · early taps cost points · Space taps at the marker</p>
+      <div className="relative flex min-h-75 flex-1 flex-col">
+        <canvas
+          ref={canvasRef}
+          role="application"
+          tabIndex={0}
+          aria-label="Orbit field. Tap anywhere when the moving dot enters a cyan arc. Violet arcs are not live. Space works too. Early taps cost points."
+          style={{
+            opacity: session.phase === 'finishing' ? 0.6 : 1,
+            transition: 'opacity 120ms linear',
+          }}
+          className="game-arena min-h-75 w-full flex-1 touch-none"
+          onPointerDown={(e) => tap(e.clientX, e.clientY)}
+        />
+        <ActionFeedback entries={actionFeedback.entries} reduced={session.reduced} />
+      </div>
+      <p className="game-hint">Tap when the dot meets cyan · Space works too</p>
     </div>
   )
 }

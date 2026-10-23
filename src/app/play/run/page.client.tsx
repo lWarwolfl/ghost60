@@ -391,8 +391,8 @@ function RunActive({ snapshot }: { snapshot: TGameSnapshot }) {
     )
   }
   return (
-    <div className="flex flex-1 flex-col">
-      <GhostRace session={session} ghost={snapshot.ghost} />
+    <div className="flex flex-1 flex-col" data-testid="active-run" data-phase={session.phase}>
+      <GhostRace session={session} ghost={session.ghostMeta} />
       <div className="relative flex flex-1 flex-col">
         {snapshot.game.gameId === 'pulse' ? (
           <PulseRunner game={snapshot.game} session={session} onReady={() => setRunnerReady(true)} />

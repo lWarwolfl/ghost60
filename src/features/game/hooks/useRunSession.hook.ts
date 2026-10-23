@@ -4,12 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSubmitRun } from '@/features/game/mutations/useSubmitRun.mutation'
 import { useGameStore, type TPublicGame } from '@/features/game/store/game-store'
 import { audio } from '@/lib/game/audio'
-import { countdownState, inputTime, runClock, consumptionRequest } from '@/lib/game/gameplay-motion'
+import { ACTION_FEEDBACK_MS, countdownState, inputTime, runClock, consumptionRequest } from '@/lib/game/gameplay-motion'
 import { clearPending, loadPending, savePending } from '@/lib/game/pending-store'
 import { markLocalRunSynced, recordLocalRun } from '@/lib/game/local-progress'
 import { useEquippedSkin } from '@/lib/hooks/useEquippedSkin.hook'
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion.hook'
 import type { GameInputEvent } from '@/games/core/game-module'
+import { snapshotGhost } from '@/lib/game/ghost-playback'
 import { getGame } from '@/games/registry'
 
 export type TRunPhase = 'loading' | 'countdown' | 'running' | 'finishing' | 'result' | 'error'
@@ -51,8 +52,8 @@ export function useRunSession(game: TPublicGame, token: string, ready = true) {
   const reduced = useReducedMotion()
   const skin = useEquippedSkin()
   const snapshot = useGameStore(state => (state.snapshot?.token === token ? state.snapshot : null))
-  const ghostMeta = snapshot?.ghost ?? null
-  const ghost = ghostMeta?.ghost ?? snapshot?.pastSelf?.ghost ?? snapshot?.challenge?.ghost
+  const ghostMeta = useMemo(() => snapshot ? snapshotGhost(snapshot) : null, [snapshot])
+  const ghost = ghostMeta?.ghost
   const reportScore = useCallback((value: number) => {
     scoreRef.current = value
   }, [])
@@ -141,9 +142,11 @@ export function useRunSession(game: TPublicGame, token: string, ready = true) {
     acceptingRef.current = false
     setPhase('finishing')
     audio.finish()
+    const lastInput = eventsRef.current.at(-1)
+    const feedbackAge = lastInput ? performance.now() - runStartRef.current - lastInput.t : Infinity
     finishTimerRef.current = setTimeout(
       () => void doSubmit([...eventsRef.current], visRef.current),
-      120
+      Math.max(120, ACTION_FEEDBACK_MS - feedbackAge)
     )
   }, [doSubmit])
 

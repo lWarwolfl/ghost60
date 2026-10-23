@@ -65,8 +65,8 @@ test('release: duplicate submit is idempotent, fabricated events cannot inflate'
           expect([400, 401, 409, 410, 429]).toContain(storm.status())
         }
       }
-      const runs = await sql`select count(*)::int as n from runs where user_id = ${uid} and mode = 'ranked'`
-      expect(runs[0].n).toBeLessThanOrEqual(1)
+      const runs = await sql`select count(*)::int as n from runs where user_id = ${uid} and session_id = ${firstJson.run.sessionId}`
+      expect(runs[0].n).toBe(1)
     }
     expect(errors).toEqual([])
     await ctx.close()

@@ -31,6 +31,8 @@ export type SanitizedGhost = {
   gameId: GameId;
   engineVersion: number;
   score: number;
+  /** Full input playback is included only for the owner of a run. */
+  replay?: GameInputEvent[];
   timeline: Array<{
     t: number;
     progress?: number;
