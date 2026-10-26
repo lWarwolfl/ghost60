@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ACTION_FEEDBACK_MS, signedPoints } from '@/lib/game/gameplay-motion'
 
-type TFeedback = { id: number; x: number; y: number; delta: number; label?: string }
+type TFeedback = {
+  id: number
+  x: number
+  y: number
+  delta: number
+  label?: string
+  showPoints?: boolean
+}
 
 export function useActionFeedback() {
   const [entries, setEntries] = useState<TFeedback[]>([])
@@ -45,8 +52,8 @@ export function ActionFeedback({ entries, reduced }: { entries: TFeedback[]; red
             color: entry.delta > 0 ? '#c7ff5e' : entry.delta < 0 ? '#ff668f' : '#f5f7ff',
           }}
         >
-          {signedPoints(entry.delta)}
-          {entry.label ? <small>{entry.label}</small> : null}
+          {entry.showPoints === false ? entry.label : signedPoints(entry.delta)}
+          {entry.label && entry.showPoints !== false ? <small>{entry.label}</small> : null}
         </span>
       ))}
     </div>

@@ -13,8 +13,7 @@ import {
   recallLayout,
   resolveSequences,
   showSchedule,
-  RECALL_CELL_SLOT_MS,
-  RECALL_CELL_ON_MS,
+  recallCellTiming,
 } from '@/games/recall/table'
 import { arrowFor, shiftRuleFor } from '@/games/shift/table'
 import { traceView, toScreen } from '@/games/trace/table'
@@ -103,12 +102,10 @@ export function drawReplayBoard(
     const schedule = showSchedule(config, choices)
     const slot = schedule[current]
     const offset = slot ? elapsed - slot.showStart : -1
-    const index = Math.floor(offset / RECALL_CELL_SLOT_MS)
+    const { slotMs, onMs } = recallCellTiming(config)
+    const index = Math.floor(offset / slotMs)
     const lit =
-      offset >= 0 &&
-      slot &&
-      elapsed < slot.showEnd &&
-      offset % RECALL_CELL_SLOT_MS < RECALL_CELL_ON_MS
+      offset >= 0 && slot && elapsed < slot.showEnd && offset % slotMs < onMs
         ? config.sequences[current]?.cells[index]
         : -1
     layout.cells.forEach((cell, i) => {

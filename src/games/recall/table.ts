@@ -10,12 +10,18 @@ export type TShowSlot = { showStart: number; showEnd: number }
 
 type TChoice = Extract<GameInputEvent, { type: 'choice' }>
 
+export function recallCellTiming(config: TRecallConfig) {
+  const slotMs = config.cellSlotMs ?? RECALL_CELL_SLOT_MS
+  return { slotMs, onMs: Math.round((slotMs * RECALL_CELL_ON_MS) / RECALL_CELL_SLOT_MS) }
+}
+
 export function showSchedule(config: TRecallConfig, choices?: TChoice[]): TShowSlot[] {
+  const { slotMs } = recallCellTiming(config)
   if (!choices) {
     let cursor = RECALL_SHOW_SETTLE_MS
     return config.sequences.map((seq) => {
       const showStart = cursor
-      const showEnd = showStart + seq.cells.length * RECALL_CELL_SLOT_MS
+      const showEnd = showStart + seq.cells.length * slotMs
       cursor = showEnd + RECALL_SEQ_GAP_MS
       return { showStart, showEnd }
     })
@@ -24,7 +30,7 @@ export function showSchedule(config: TRecallConfig, choices?: TChoice[]): TShowS
   let showStart = RECALL_SHOW_SETTLE_MS
   let choiceCursor = 0
   return config.sequences.map((seq) => {
-    const showEnd = showStart + seq.cells.length * RECALL_CELL_SLOT_MS
+    const showEnd = showStart + seq.cells.length * slotMs
     const slot = { showStart, showEnd }
     let pos = 0
     let alive = true
@@ -39,9 +45,7 @@ export function showSchedule(config: TRecallConfig, choices?: TChoice[]): TShowS
     }
 
     const resolved = !alive || pos === seq.cells.length
-    showStart = resolved
-      ? Math.max(showEnd, lastT) + RECALL_SEQ_GAP_MS
-      : Number.POSITIVE_INFINITY
+    showStart = resolved ? Math.max(showEnd, lastT) + RECALL_SEQ_GAP_MS : Number.POSITIVE_INFINITY
     return slot
   })
 }
@@ -85,7 +89,7 @@ export function recallLayout(cssW: number, cssH: number, grid: number) {
       cells.push({
         x: originX + col * pitch + (pitch - size) / 2,
         y: originY + row * pitch + (pitch - size) / 2,
-        size
+        size,
       })
     }
   }

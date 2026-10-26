@@ -6,8 +6,7 @@ import type { TPublicGame } from '@/features/game/store/game-store'
 import type { GameInputEvent } from '@/games/core/game-module'
 import { recallEngine, type TRecallConfig } from '@/games/recall/engine'
 import {
-  RECALL_CELL_ON_MS,
-  RECALL_CELL_SLOT_MS,
+  recallCellTiming,
   recallLayout,
   resolveSequences,
   showSchedule,
@@ -73,6 +72,7 @@ export function RecallRunner({
   const verdictRef = useRef<ReturnType<typeof recallFeedback>>(null)
   const resolutionRef = useRef({ count: -1, resolved: [] as TSeqResolution[] })
   const focusRef = useRef(0)
+  const keyboardRef = useRef(false)
   const finishRequested = useRef(false)
   const [score, setScore] = useState(0)
   const config = useMemo(
@@ -81,6 +81,7 @@ export function RecallRunner({
   )
   const durationMs = game.durationMs
   const grid = config.grid
+  const { slotMs, onMs } = recallCellTiming(config)
 
   useEffect(() => {
     onReady?.()
@@ -122,6 +123,7 @@ export function RecallRunner({
       ctx2d.clearRect(0, 0, w, h)
       const current = resolved.findIndex((r) => r.status === 'open')
       const finished = resolved.every((r) => r.status !== 'open')
+      const answering = current !== -1 && elapsed >= schedule[current].showEnd
 
       if (finished && !finishRequested.current && elapsed - (taps.at(-1)?.t ?? 0) >= 1600) {
         finishRequested.current = true
@@ -137,8 +139,8 @@ export function RecallRunner({
           const slot = schedule[current]
           const seq = config.sequences[current]
           if (elapsed >= slot.showStart && elapsed < slot.showEnd) {
-            const k = Math.floor((elapsed - slot.showStart) / RECALL_CELL_SLOT_MS)
-            const on = elapsed - slot.showStart - k * RECALL_CELL_SLOT_MS < RECALL_CELL_ON_MS
+            const k = Math.floor((elapsed - slot.showStart) / slotMs)
+            const on = elapsed - slot.showStart - k * slotMs < onMs
             if (on && k < seq.cells.length && seq.cells[k] === i) {
               fill = 'rgba(98,247,230,0.65)'
               stroke = '#62f7e6'
@@ -147,18 +149,12 @@ export function RecallRunner({
         }
         const v = verdictRef.current
         const age = v ? elapsed - v.at : -1
-        if (v && v.cell === i && age >= 0 && age < 90) {
-          fill = 'rgba(98,247,230,0.3)'
-          stroke = '#62f7e6'
-        }
-        if (
-          v?.status === 'complete' &&
-          age >= 0 &&
-          age < v.cells.length * 70 &&
-          v.cells[Math.floor(age / 70)] === i
-        ) {
-          fill = 'rgba(98,247,230,0.5)'
-          stroke = '#c7ff5e'
+        // Never replay a completed pattern as a celebration: those flashes look
+        // like instructions and can run into the following WATCH phase.
+        if (v && v.cell === i && age >= 0 && age < (v.status === 'open' ? 160 : 300)) {
+          fill = v.status === 'failed' ? 'rgba(255,102,143,0.3)' : 'rgba(98,247,230,0.3)'
+          stroke =
+            v.status === 'failed' ? '#ff668f' : v.status === 'complete' ? '#c7ff5e' : '#62f7e6'
         }
         if (
           current !== -1 &&
@@ -176,7 +172,12 @@ export function RecallRunner({
         ctx2d.lineWidth = Math.max(2, layout.size * 0.03)
         ctx2d.strokeStyle = stroke
         ctx2d.stroke()
-        if (i === focusRef.current) {
+        if (
+          answering &&
+          keyboardRef.current &&
+          document.activeElement === canvas &&
+          i === focusRef.current
+        ) {
           ctx2d.lineWidth = Math.max(2, layout.size * 0.045)
           ctx2d.strokeStyle = '#62f7e6'
           ctx2d.beginPath()
@@ -191,7 +192,8 @@ export function RecallRunner({
       if (session.ghost) {
         const last = ghostEventsAt(session.ghost, elapsed).at(-1)
         session.ghostActionRef.current = `GHOST · ${signedPoints(seen.at(-1)?.delta ?? 0)}`
-        if (last?.type === 'choice' && elapsed - last.t < 1200) {
+        // The rival's independent inputs must not look like extra WATCH tiles.
+        if (answering && last?.type === 'choice' && elapsed - last.t < 1200) {
           const cell = layout.cells[last.value]
           if (cell)
             drawGhostGlyph(ctx2d, cell.x + cell.size / 2, cell.y + cell.size / 2, cell.size * 0.17)
@@ -209,7 +211,7 @@ export function RecallRunner({
                   return `SEQ ${current + 1}/${config.sequences.length} · GET READY`
                 if (elapsed < slot.showEnd)
                   return `SEQ ${current + 1}/${config.sequences.length} · WATCH`
-                return `SEQ ${current + 1}/${config.sequences.length} · YOUR TURN`
+                return `SEQ ${current + 1}/${config.sequences.length} · YOUR TURN · ${resolved[current].used}/${config.sequences[current].cells.length}`
               })()
       }
       if (current !== -1) {
@@ -237,7 +239,7 @@ export function RecallRunner({
       ro.disconnect()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- countdown ticks must not re-init the canvas
-  }, [config, durationMs, grid, session.skin, session.reduced])
+  }, [config, durationMs, grid, onMs, slotMs, session.skin, session.reduced])
 
   const choose = (cell: number) => {
     if (session.phase !== 'running') return
@@ -257,19 +259,20 @@ export function RecallRunner({
       visibilityInterruptions: 0,
     })
     setScore(res.score)
+    const feedback = recallFeedback(config, next)
     const canvas = canvasRef.current
-    if (canvas) {
+    if (canvas && feedback && feedback.status !== 'open') {
       const layout = recallLayout(canvas.width, canvas.height, grid)
       const selected = layout.cells[cell]
       actionFeedback.show({
         x: (selected.x + selected.size / 2) / canvas.width,
         y: (selected.y + selected.size / 2) / canvas.height,
         delta: res.score - session.scoreRef.current,
-        label: res.score > session.scoreRef.current ? undefined : 'SEQUENCE',
+        label: feedback.status === 'complete' ? 'SEQUENCE COMPLETE' : 'MISS',
+        showPoints: feedback.status === 'complete',
       })
     }
     session.reportScore(res.score)
-    const feedback = recallFeedback(config, next)
     verdictRef.current = feedback
     if (feedback?.status === 'failed') audio.miss()
     else if (feedback?.status === 'complete') audio.correct()
@@ -280,6 +283,13 @@ export function RecallRunner({
       if (!isGameInputTarget(e.target)) return
       if (e.repeat) return
       const n = Number.parseInt(e.key, 10)
+      if (
+        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(e.key) ||
+        (n >= 1 && n <= 9)
+      ) {
+        keyboardRef.current = true
+        canvasRef.current?.focus({ preventScroll: true })
+      }
       if (n >= 1 && n <= 9 && n - 1 < grid * grid) {
         e.preventDefault()
         focusRef.current = n - 1
@@ -349,6 +359,7 @@ export function RecallRunner({
           }}
           className="game-arena min-h-75 w-full flex-1 touch-none"
           onPointerDown={(e) => {
+            keyboardRef.current = false
             const canvas = canvasRef.current
             if (!canvas) return
             const rect = canvas.getBoundingClientRect()
@@ -367,7 +378,7 @@ export function RecallRunner({
         />
         <ActionFeedback entries={actionFeedback.entries} reduced={session.reduced} />
       </div>
-      <p className="game-hint">Watch, then repeat · arrows + Enter work too</p>
+      <p className="game-hint">Watch, then repeat · One wrong tile ends the pattern</p>
     </div>
   )
 }

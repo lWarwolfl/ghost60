@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/drizzle'
 import { DailyGame, GameDefinition, type TDailyGame } from '@/drizzle/schema'
 import { buildDayConfig } from '@/games/content/builder'
+import { buildFlashConfig } from '@/games/content/flash'
 import { loadSchedule, type TScheduleDay } from '@/games/content/schedule'
 import { getGame } from '@/games/registry'
 import type { GameId } from '@/games/core/game-module'
@@ -26,7 +27,7 @@ async function ensureGame(input: {
   endsAt: Date | null
   title: string
 }): Promise<TDailyGame> {
-  const built = buildDayConfig(input.day)
+  const built = input.kind === 'special' ? buildFlashConfig(input.day) : buildDayConfig(input.day)
   const mod = getGame(input.day.engine as GameId)
   await db.insert(GameDefinition).values({
     id: input.day.engine,

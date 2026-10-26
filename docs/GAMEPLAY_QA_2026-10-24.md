@@ -47,7 +47,16 @@ The long challenge, Orbit, and Shift browser tests were repeated against the pro
 - Bootstrap and game-start recovery share one guest sign-in. A `401` receives one authentication recovery attempt; charge and server failures are not blindly retried. Daily, Flash, archive, challenge and dev screens display specific start errors.
 - Added 14 regressions covering actual preview guest creation and session-cookie reading, unrelated-origin rejection, bootstrap/Play concurrency, identity preservation, daily/Flash authentication recovery, charge rejection and HTML server errors. All 302 database-independent unit tests pass. The three database-backed rate-limit tests were not rerun during this follow-up.
 - Live production checks created an isolated test guest and successfully opened daily and Flash sessions (`200` for both); the test account was deleted afterward. These are session-start checks, not completed production game runs.
-- The protected PR preview still requires Vercel team authorization for live verification and runtime logs. Its successful build alone does not prove authentication works in the deployed environment.
+- Vercel team authorization now works. Confirmed the deployed commit and required preview environment-variable names, fetched the protected Flash endpoint successfully (`200`), and queried recent runtime logs/error clusters without finding application exceptions. This does not establish the complete browser flow. Automatic approval review blocked the temporary share-link path for browser automation; the temporary links created for verification were revoked. Live protected-preview game starts remain unverified.
+
+## Memory Leak and Flash follow-up — 2026-10-26
+
+- Removed Recall's completion animation that re-flashed the old pattern. A long completion animation could overlap the following WATCH phase. Completed input now receives one brief tile confirmation and one score popup.
+- Independent ghost inputs and keyboard-focus outlines no longer appear as extra tiles during WATCH. The ghost continues advancing in the race HUD and shows tile inputs during the answer phase.
+- Correct intermediate tiles show answer progress rather than repeated zero-point popups. A wrong tile shows `MISS`; the hint explains that one wrong tile ends the pattern. Scores remain authoritative and unchanged.
+- Newly generated Flash boards have roughly 10% more breathing room: fewer automatic prompts, slightly slower Orbit motion, and 880ms Recall slots instead of 800ms. Snap response windows and Recall answer allowances are slightly wider. Trace remains controlled by the player's hand.
+- Existing persisted Flash boards are immutable so active sessions and their recorded ghosts keep their original configuration. The pace change applies from the next generated rotation; daily boards are unchanged.
+- All 337 database-independent unit tests pass, including 35 Flash content checks. Two browser regressions pass against the local production build at 390×844, with API responses isolated: normal and Flash Recall timing, a 12-cell transition, ghost suppression during WATCH, absence of partial-input zero popups, completion points, and `MISS` feedback. These are real canvas/UI checks, not live database submission checks. The production build, TypeScript and lint pass. The three DB-backed rate-limit tests were not rerun in this follow-up.
 
 ## Screenshots
 
