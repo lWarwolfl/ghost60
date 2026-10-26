@@ -1,5 +1,6 @@
 'use client'
 
+import { sessionStartMessage } from '@/features/game/api/create-session'
 import Link from 'next/link'
 import { useArchivePages } from '@/features/game/queries/useArchive.query'
 import { useCreateSession } from '@/features/game/mutations/useCreateSession.mutation'
@@ -34,11 +35,7 @@ export function ArchiveClient() {
       )
       router.push('/play/run')
     } catch (error) {
-      setError(
-        error instanceof Error && error.message === 'charges-empty'
-          ? 'No runs left today. Ghost+ is unlimited.'
-          : 'Couldn’t open that trace. Try again.'
-      )
+      setError(sessionStartMessage(error))
     }
   }
   const startPlaylist = async () => {
@@ -50,8 +47,8 @@ export function ArchiveClient() {
       const snapshot = await create.mutateAsync({ mode: 'practice', dailyGameId: first })
       setSnapshot({ ...snapshot, playlist: remaining })
       router.push('/play/run')
-    } catch {
-      setError('Couldn’t open the playlist. Try again.')
+    } catch (error) {
+      setError(sessionStartMessage(error))
     }
   }
   const share = async (runId: string) => {

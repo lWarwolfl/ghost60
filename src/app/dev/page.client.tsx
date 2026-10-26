@@ -1,5 +1,6 @@
 'use client'
 
+import { sessionStartMessage } from '@/features/game/api/create-session'
 import { useRouter } from 'next/navigation'
 import { GameIcon } from '@/components/brand/game-icon'
 import { useCreateSession } from '@/features/game/mutations/useCreateSession.mutation'
@@ -22,18 +23,18 @@ export function DevClient() {
   const create = useCreateSession()
   const setSnapshot = useGameStore((state) => state.setSnapshot)
   const [opening, setOpening] = useState<string | null>(null)
-  const [failed, setFailed] = useState(false)
+  const [failed, setFailed] = useState<string | null>(null)
 
   const play = async (engine: (typeof ENGINES)[number]) => {
-    setFailed(false)
+    setFailed(null)
     setOpening(engine)
     audio.unlock()
     try {
       const snapshot = await create.mutateAsync({ mode: 'dev', engine })
       setSnapshot(snapshot)
       router.push('/play/run')
-    } catch {
-      setFailed(true)
+    } catch (error) {
+      setFailed(sessionStartMessage(error))
     } finally {
       setOpening(null)
     }
@@ -49,7 +50,7 @@ export function DevClient() {
           No daily limit, no charges, no streak changes. Each run still records and syncs so you
           can inspect the replay in the archive.
         </p>
-        {failed && <p role="status" className="text-ghost-muted text-sm">Couldn’t open that engine. Try again.</p>}
+        {failed && <p role="status" className="text-ghost-muted text-sm">{failed}</p>}
         <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {ENGINES.map((engine) => (
             <li key={engine}>

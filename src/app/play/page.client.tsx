@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { sessionStartMessage } from '@/features/game/api/create-session'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { GameIcon } from '@/components/brand/game-icon'
@@ -19,7 +20,7 @@ export function PreflightClient() {
   const charges = useCharges()
   const create = useCreateSession()
   const setSnapshot = useGameStore((s) => s.setSnapshot)
-  const [failed, setFailed] = useState(false)
+  const [failed, setFailed] = useState<string | null>(null)
 
   useEffect(() => {
     router.prefetch('/play/run')
@@ -30,7 +31,7 @@ export function PreflightClient() {
   const canPlay = !create.isPending && !out
 
   const play = async () => {
-    setFailed(false)
+    setFailed(null)
     audio.unlock()
     track('play_cta_clicked', { game: today?.gameId ?? 'unknown' })
     try {
@@ -38,7 +39,7 @@ export function PreflightClient() {
       setSnapshot(snapshot)
       router.push('/play/run')
     } catch (error) {
-      if (!(error instanceof Error && error.message === 'charges-empty')) setFailed(true)
+      setFailed(sessionStartMessage(error))
     }
   }
 
@@ -93,7 +94,7 @@ export function PreflightClient() {
             )}
             {failed && (
               <p role="status" className="text-ghost-muted text-sm">
-                Couldn&apos;t open the field. Try again.
+                {failed}
               </p>
             )}
             <button

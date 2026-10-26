@@ -40,6 +40,15 @@ The long challenge, Orbit, and Shift browser tests were repeated against the pro
 - The installed Next.js 16.4.0 CLI reported an existing security advisory. The build succeeded on the CLI's requested retry. Dependency upgrades are separate from these gameplay changes.
 - Screenshots are desktop Chromium at phone viewport sizes, not physical-device or audio-listening acceptance.
 
+## Preview startup follow-up — 2026-10-26
+
+- Reproduced `403 INVALID_ORIGIN` in the real Better Auth handler when a preview request carries Vercel's protection cookie and only the production URL is trusted. Without a guest session, every game start then receives `401`.
+- Preview authentication now accepts only the exact deployment and branch hosts supplied by Vercel, with callbacks resolved on the current host. Production and local authentication retain their configured URL; unrelated origins remain rejected.
+- Bootstrap and game-start recovery share one guest sign-in. A `401` receives one authentication recovery attempt; charge and server failures are not blindly retried. Daily, Flash, archive, challenge and dev screens display specific start errors.
+- Added 14 regressions covering actual preview guest creation and session-cookie reading, unrelated-origin rejection, bootstrap/Play concurrency, identity preservation, daily/Flash authentication recovery, charge rejection and HTML server errors. All 302 database-independent unit tests pass. The three database-backed rate-limit tests were not rerun during this follow-up.
+- Live production checks created an isolated test guest and successfully opened daily and Flash sessions (`200` for both); the test account was deleted afterward. These are session-start checks, not completed production game runs.
+- The protected PR preview still requires Vercel team authorization for live verification and runtime logs. Its successful build alone does not prove authentication works in the deployed environment.
+
 ## Screenshots
 
 Orbit's score stays at the action's point on the ring:
