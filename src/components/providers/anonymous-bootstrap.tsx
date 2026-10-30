@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { authClient } from '@/lib/auth/client'
+import { ensureSession } from '@/lib/auth/ensure-session'
 import { flushPending } from '@/lib/game/pending-store'
 import { QUERY_KEYS } from '@/features/game/queries/keys'
 
@@ -14,12 +14,11 @@ export function AnonymousBootstrap() {
   useEffect(() => {
     let cancelled = false
     async function run() {
-      const { data } = await authClient.getSession()
-      if (cancelled || data?.user) return
-      await authClient.signIn.anonymous()
+      await ensureSession()
       if (!cancelled) router.refresh()
     }
-    run()
+    // Play retries authentication and displays failures in context.
+    void run().catch(() => {})
     return () => {
       cancelled = true
     }

@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useCreateSession } from '@/features/game/mutations/useCreateSession.mutation'
 import { useGameStore } from '@/features/game/store/game-store'
 import { audio } from '@/lib/game/audio'
-import { getErrorMessage } from '@/lib/utils'
+import { sessionStartMessage } from '@/features/game/api/create-session'
 
 export function RaceClient({
   challengeId,
@@ -34,7 +34,7 @@ export function RaceClient({
       })
       router.push('/play/run')
     } catch (e) {
-      setFailed(getErrorMessage(e))
+      setFailed(sessionStartMessage(e))
     }
   }
 
@@ -42,9 +42,7 @@ export function RaceClient({
     <div className="flex flex-col gap-3">
       {failed && (
         <p role="alert" className="rounded-card border border-rival-coral/40 bg-ink-900 px-4 py-3 text-sm text-rival-coral">
-          {failed === 'already-attempted'
-            ? 'You already raced this ghost. Send a revenge challenge from your result instead.'
-            : failed}
+          {failed}
         </p>
       )}
       <button

@@ -12,6 +12,7 @@ const DURATION_MS = 50000
 
 const RecallConfigSchema = z.object({
   grid: z.union([z.literal(3), z.literal(4)]),
+  cellSlotMs: z.number().int().min(800).max(1200).optional(),
   sequences: z
     .array(
       z.object({

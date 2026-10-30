@@ -4,11 +4,11 @@ import { anonymous } from 'better-auth/plugins/anonymous'
 import { db } from '@/drizzle'
 import { Account, Session, User, Verification } from '@/drizzle/schema'
 import { migrateAnonymousData } from '@/lib/auth/link-migration'
+import { authOrigins } from '@/lib/auth/origins'
 
 export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
-  baseURL: process.env.BETTER_AUTH_URL,
-  trustedOrigins: process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : [],
+  ...authOrigins(),
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema: { user: User, session: Session, account: Account, verification: Verification }

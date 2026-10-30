@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { GhostAvatar } from '@/components/brand/ghost-avatar'
+import { drawGhostGlyph } from '@/lib/game/ghost-renderer'
+import { drawReplayBoard } from '@/lib/game/replay-renderer'
 import type { SanitizedGhost } from '@/games/core/game-module'
 import type { GameInputEvent } from '@/games/core/game-module'
 import { ghostAt, ghostDeltaAt, signedPoints } from '@/lib/game/gameplay-motion'
@@ -78,90 +79,30 @@ export function GhostReplay({ game, events, ghost, score }: TProps) {
       ctx.stroke()
     }
 
-    const visible = events.filter((event) => event.t <= elapsed)
-    const points = visible.filter((event) => 'p' in event && event.p)
-    if (points.length > 1) {
-      ctx.strokeStyle = 'rgba(98,247,230,0.55)'
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      points.forEach((event, index) => {
-        const p = (event as Extract<GameInputEvent, { p?: { x: number; y: number } }>).p!
-        const x = (p.x / 10000) * width
-        const y = (p.y / 10000) * height
-        if (index === 0) ctx.moveTo(x, y)
-        else ctx.lineTo(x, y)
-      })
-      ctx.stroke()
+    const { point, last } = drawReplayBoard(ctx, game, events, elapsed, width, height)
+    if (last) drawGhostGlyph(ctx, point.x, point.y, 13)
+    const recent = ghostDeltaAt(ghost.timeline, elapsed)
+    if (recent && elapsed - recent.at < 1600 && last) {
+      ctx.font = '800 28px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.lineWidth = 7
+      ctx.strokeStyle = '#070912'
+      ctx.fillStyle = recent.delta < 0 ? '#ff668f' : '#c7ff5e'
+      const x = Math.min(width - 55, Math.max(55, point.x))
+      const y = Math.max(32, point.y - 24)
+      ctx.strokeText(signedPoints(recent.delta), x, y)
+      ctx.fillText(signedPoints(recent.delta), x, y)
     }
-
-    for (const event of visible) {
-      if (event.type === 'tap') {
-        if (event.p) {
-          const x = (event.p.x / 10000) * width
-          const y = (event.p.y / 10000) * height
-          ctx.fillStyle = '#c7ff5e'
-          ctx.beginPath()
-          ctx.arc(x, y, 4, 0, Math.PI * 2)
-          ctx.fill()
-        } else if (typeof event.value === 'number') {
-          const radius = Math.min(width, height) * 0.3
-          const angle = (event.value * Math.PI) / 180
-          ctx.strokeStyle = '#62f7e6'
-          ctx.lineWidth = 2
-          ctx.beginPath()
-          ctx.moveTo(width / 2 + radius * Math.cos(angle), height / 2 + radius * Math.sin(angle))
-          ctx.lineTo(width / 2 + (radius + 12) * Math.cos(angle), height / 2 + (radius + 12) * Math.sin(angle))
-          ctx.stroke()
-        }
-      }
-      if (event.type === 'choice' && typeof event.value === 'number') {
-        const x = (event.t / game.durationMs) * width
-        ctx.fillStyle = '#a98bff'
-        ctx.fillRect(Math.max(0, x - 2), height - 18, 4, 12)
-        ctx.fillStyle = 'rgba(169,139,255,0.65)'
-        ctx.font = '10px ui-monospace, monospace'
-        ctx.fillText(String(event.value), x + 4, height - 7)
-      }
-    }
-
-    const ghostNow = ghostAt(ghost.timeline, elapsed, score)
-    const railY = 12
-    ctx.strokeStyle = 'rgba(245,247,255,0.12)'
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.moveTo(8, railY)
-    ctx.lineTo(width - 8, railY)
-    ctx.stroke()
-    const ghostX = 8 + (width - 16) * ghostNow.progress
-    ctx.fillStyle = '#a98bff'
-    ctx.beginPath()
-    ctx.arc(ghostX, railY, 5, 0, Math.PI * 2)
-    ctx.fill()
-    const playerProgress = Math.min(1, elapsed / game.durationMs)
-    ctx.fillStyle = '#62f7e6'
-    ctx.beginPath()
-    ctx.arc(8 + (width - 16) * playerProgress, railY, 3, 0, Math.PI * 2)
-    ctx.fill()
-
-    ctx.fillStyle = 'rgba(245,247,255,0.7)'
-    ctx.font = '11px ui-monospace, monospace'
-    ctx.fillText(`ghost ${ghostNow.score}`, 8, height - 4)
-  }, [elapsed, events, game.durationMs, ghost, score])
+  }, [elapsed, events, game, ghost, score])
 
   const ghostNow = ghostAt(ghost.timeline, elapsed, score)
   const recent = ghostDeltaAt(ghost.timeline, elapsed)
-  let point: { x: number; y: number } | null = null
-  for (const event of events) {
-    if (event.t <= elapsed && 'p' in event && event.p) point = event.p
-  }
-  const ghostX = point ? Math.min(0.94, Math.max(0.06, point.x / 10000)) : 0.2 + ghostNow.progress * 0.6
-  const ghostY = point ? Math.min(0.94, Math.max(0.06, point.y / 10000)) : 0.5 + Math.sin(ghostNow.progress * Math.PI * 4) * 0.16
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-spectral-violet text-[10px] tracking-[0.18em] uppercase">Your ghost</p>
         <p className="tnum flex items-baseline gap-2 text-sm">
-          {recent && elapsed - recent.at < 900 ? (
+          {recent && elapsed - recent.at < 1600 ? (
             <span className={recent.delta < 0 ? 'text-rival-coral' : 'text-signal-lime'}>
               {signedPoints(recent.delta)}
             </span>
@@ -176,15 +117,7 @@ export function GhostReplay({ game, events, ghost, score }: TProps) {
           aria-label={`Ghost replay of your ${game.gameId} run. Live ghost score ${ghostNow.score} of ${score}.`}
           className="game-arena h-64 w-full"
         />
-        <div
-          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
-          style={{ left: `${ghostX * 100}%`, top: `${ghostY * 100}%`, transition: 'left 140ms linear, top 140ms linear' }}
-        >
-          <span className="bg-spectral-violet/20 ring-spectral-violet/50 block rounded-full p-1.5 ring-1 shadow-[0_0_26px_rgba(169,139,255,0.6)]">
-            <GhostAvatar motion="race" gradient={['#c3aaff', '#7d5cff']} className="size-8" />
-          </span>
-        </div>
-        <span className="text-spectral-violet border-spectral-violet/40 bg-ink-950/70 pointer-events-none absolute right-3 top-3 rounded-full border px-2 py-0.5 text-[9px] tracking-[0.18em] uppercase">
+        <span className="text-spectral-violet border-spectral-violet/40 bg-ink-950/70 pointer-events-none absolute top-3 right-3 rounded-full border px-2 py-0.5 text-[9px] tracking-[0.18em] uppercase">
           Ghost
         </span>
       </div>
@@ -195,7 +128,7 @@ export function GhostReplay({ game, events, ghost, score }: TProps) {
             if (elapsed >= game.durationMs) setElapsed(0)
             setPlaying((value) => !value)
           }}
-          className="rounded-control border border-white/15 min-h-11 px-4 text-xs font-600"
+          className="rounded-control font-600 min-h-11 border border-white/15 px-4 text-xs"
         >
           {playing ? 'PAUSE' : elapsed >= game.durationMs ? 'REPLAY' : 'PLAY'}
         </button>
@@ -205,7 +138,7 @@ export function GhostReplay({ game, events, ghost, score }: TProps) {
             setElapsed(0)
             setPlaying(true)
           }}
-          className="rounded-control border border-white/15 min-h-11 px-3 text-xs font-600"
+          className="rounded-control font-600 min-h-11 border border-white/15 px-3 text-xs"
         >
           RESTART
         </button>
@@ -216,7 +149,7 @@ export function GhostReplay({ game, events, ghost, score }: TProps) {
               type="button"
               aria-pressed={speed === value}
               onClick={() => setSpeed(value)}
-              className={`rounded-control min-h-11 px-3 text-xs ${speed === value ? 'text-spectral-cyan border border-spectral-cyan/50' : 'text-ghost-muted border border-white/10'}`}
+              className={`rounded-control min-h-11 px-3 text-xs ${speed === value ? 'text-spectral-cyan border-spectral-cyan/50 border' : 'text-ghost-muted border border-white/10'}`}
             >
               {value}×
             </button>
@@ -236,8 +169,8 @@ export function GhostReplay({ game, events, ghost, score }: TProps) {
         className="w-full accent-[#62f7e6]"
       />
       <p className="text-ghost-muted text-xs">
-        Every tap, choice, and pointer move is replayed from the stored run — the same order it
-        happened. Green = points taken · Coral = points lost.
+        Every tap, choice, and pointer move plays on the original game board at its recorded time.
+        Green = points taken · Coral = points lost.
       </p>
     </div>
   )

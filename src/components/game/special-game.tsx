@@ -1,5 +1,6 @@
 'use client'
 
+import { sessionStartMessage } from '@/features/game/api/create-session'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -25,7 +26,7 @@ export function SpecialGame() {
   const create = useCreateSession()
   const setSnapshot = useGameStore((state) => state.setSnapshot)
   const [now, setNow] = useState<number | null>(null)
-  const [failed, setFailed] = useState(false)
+  const [failed, setFailed] = useState<string | null>(null)
   const query = useQuery<TSpecial>({
     queryKey: ['game-special'],
     queryFn: async () => {
@@ -45,14 +46,14 @@ export function SpecialGame() {
   if (!game) return null
 
   const play = async () => {
-    setFailed(false)
+    setFailed(null)
     audio.unlock()
     try {
       const snapshot = await create.mutateAsync({ mode: 'special' })
       setSnapshot(snapshot)
       router.push('/play/run')
-    } catch {
-      setFailed(true)
+    } catch (error) {
+      setFailed(sessionStartMessage(error))
     }
   }
 
@@ -88,7 +89,7 @@ export function SpecialGame() {
           {create.isPending ? 'OPENING…' : 'PLAY FLASH'}
         </button>
       </div>
-      {failed && <p className="text-ghost-muted relative mt-2 text-xs">Couldn’t open the flash game. Try again.</p>}
+      {failed && <p role="alert" className="text-ghost-muted relative mt-2 text-xs">{failed}</p>}
     </section>
   )
 }

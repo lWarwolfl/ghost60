@@ -144,9 +144,7 @@ export const orbitEngine: GameModule<TOrbitConfig> = {
         } else if (tap.t <= target.closeMs) {
           const angle = tap.value === undefined ? target.angleDeg : tap.value
           const d = angDist(angle, target.angleDeg)
-          if (d <= target.perfectTolDeg) delta = 1000
-          else if (d <= target.goodTolDeg) delta = 650
-          else if (d <= target.edgeTolDeg) delta = 350
+          delta = orbitBand(d, target)
         }
       }
       cum += delta

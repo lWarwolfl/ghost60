@@ -1,6 +1,6 @@
 import type { TSkin } from '@/lib/game/skins'
 
-export type TSkinPoint = { x: number; y: number; t: number }
+export type TSkinPoint = { x: number; y: number; t: number; start?: boolean }
 export type TSkinTrailOptions = {
   points: readonly TSkinPoint[]
   skin: TSkin
@@ -9,6 +9,7 @@ export type TSkinTrailOptions = {
   height: number
   reduced: boolean
   rival?: boolean
+  rivalDelayMs?: number
   delayMs?: number
   maxTimeMs?: number
 }
@@ -18,37 +19,85 @@ function bound(value: number, min: number, max: number, fallback: number) {
 }
 
 export function getSkinTrailBounds(skin: TSkin, reduced: boolean, rival = false) {
-  const lifetime = bound(skin.trail.lifetimeMs, 180, skin.avatar.effect === 'long-exposure' ? 650 : 700, 380)
+  const lifetime = bound(
+    skin.trail.lifetimeMs,
+    180,
+    skin.avatar.effect === 'long-exposure' ? 650 : 700,
+    380
+  )
   return {
     widthScale: bound(skin.trail.widthScale, 0.85, 1.15, 1),
     opacity: bound(skin.trail.opacity, 0.22, rival ? 0.3 : 0.48, 0.3),
     lifetimeMs: reduced ? lifetime / 2 : lifetime,
-    particles: reduced ? 0 : Math.floor(bound(skin.trail.particleRate, 0, skin.avatar.effect === 'mint' ? 12 : 20, 0))
+    particles: reduced
+      ? 0
+      : Math.floor(bound(skin.trail.particleRate, 0, skin.avatar.effect === 'mint' ? 12 : 20, 0)),
   }
 }
 
 export function visibleSkinPoints(
-  points: readonly TSkinPoint[], elapsedMs: number, lifetimeMs: number,
-  rival = false, delayMs = 0, maxTimeMs = elapsedMs
+  points: readonly TSkinPoint[],
+  elapsedMs: number,
+  lifetimeMs: number,
+  rival = false,
+  delayMs = 0,
+  maxTimeMs = elapsedMs,
+  rivalDelayMs = 500
 ): TSkinPoint[] {
-  const end = Math.min(elapsedMs - Math.max(rival ? 500 : 0, delayMs), maxTimeMs)
+  const end = Math.min(
+    elapsedMs - Math.max(rival ? Math.max(0, rivalDelayMs) : 0, delayMs),
+    maxTimeMs
+  )
   if (!Number.isFinite(end) || end < 0) return []
   const visible: TSkinPoint[] = []
   for (let i = points.length - 1; i >= 0 && visible.length < 96; i -= 1) {
     const p = points[i]
-    if (!Number.isFinite(p.t) || p.t > end || p.t < end - lifetimeMs || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue
-    visible.push({ x: bound(p.x, 0, 1, 0), y: bound(p.y, 0, 1, 0), t: p.t })
+    if (
+      !Number.isFinite(p.t) ||
+      p.t > end ||
+      p.t < end - lifetimeMs ||
+      !Number.isFinite(p.x) ||
+      !Number.isFinite(p.y)
+    )
+      continue
+    visible.push({
+      x: bound(p.x, 0, 1, 0),
+      y: bound(p.y, 0, 1, 0),
+      t: p.t,
+      ...(p.start ? { start: true } : {}),
+    })
   }
   return visible.reverse()
 }
 
 export function drawSkinTrail(ctx: CanvasRenderingContext2D, options: TSkinTrailOptions) {
-  const { skin, elapsedMs, width, height, reduced, rival = false, delayMs = 0, maxTimeMs = elapsedMs } = options
+  const {
+    skin,
+    elapsedMs,
+    width,
+    height,
+    reduced,
+    rival = false,
+    delayMs = 0,
+    maxTimeMs = elapsedMs,
+    rivalDelayMs = 500,
+  } = options
   const bounds = getSkinTrailBounds(skin, reduced, rival)
-  const points = visibleSkinPoints(options.points, elapsedMs, bounds.lifetimeMs, rival, delayMs, maxTimeMs)
+  const points = visibleSkinPoints(
+    options.points,
+    elapsedMs,
+    bounds.lifetimeMs,
+    rival,
+    delayMs,
+    maxTimeMs,
+    rivalDelayMs
+  )
   if (points.length < 2 || width <= 0 || height <= 0) return
   const effect = skin.avatar.effect
-  const end = Math.min(elapsedMs - Math.max(rival ? 500 : 0, delayMs), maxTimeMs)
+  const end = Math.min(
+    elapsedMs - Math.max(rival ? Math.max(0, rivalDelayMs) : 0, delayMs),
+    maxTimeMs
+  )
   const color = rival ? '#A98BFF' : skin.trail.primary
   const secondary = rival ? '#D9C8FF' : skin.trail.secondary
   ctx.save()
@@ -69,6 +118,7 @@ export function drawSkinTrail(ctx: CanvasRenderingContext2D, options: TSkinTrail
     if (strokeColor) ctx.strokeStyle = strokeColor
     for (let i = 1; i < points.length; i += 1) {
       const p = points[i]
+      if (p.start) continue
       const prev = points[i - 1]
       ctx.globalAlpha = bounds.opacity * Math.max(0, 1 - (end - p.t) / bounds.lifetimeMs)
       const wave = effect === 'heatwave' && !reduced ? Math.sin(p.t / 80) * 1.5 : 0
@@ -104,14 +154,20 @@ export function drawSkinTrail(ctx: CanvasRenderingContext2D, options: TSkinTrail
     for (let y = shift; y < height; y += 6) ctx.fillRect(0, y, width, 1)
     ctx.restore()
   }
-  const particleCount = effect === 'mono' || effect === 'clean' || effect === 'scanline' ? 0 : bounds.particles
+  const particleCount =
+    effect === 'mono' || effect === 'clean' || effect === 'scanline' ? 0 : bounds.particles
   for (let i = 0; i < particleCount; i += 1) {
-    const p = points[Math.floor(i * (points.length - 1) / Math.max(1, particleCount - 1))]
+    const p = points[Math.floor((i * (points.length - 1)) / Math.max(1, particleCount - 1))]
     const age = (end - p.t) / bounds.lifetimeMs
     const drift = Math.sin(i * 2.4 + elapsedMs / 230) * 3
     ctx.globalAlpha = bounds.opacity * (1 - age) * 0.7
     ctx.fillStyle = secondary
-    ctx.fillRect(p.x * width + drift, p.y * height + Math.cos(i * 3.1) * 3, effect === 'mint' ? 2 : 1, effect === 'mint' ? 2 : 1)
+    ctx.fillRect(
+      p.x * width + drift,
+      p.y * height + Math.cos(i * 3.1) * 3,
+      effect === 'mint' ? 2 : 1,
+      effect === 'mint' ? 2 : 1
+    )
   }
   ctx.restore()
 }
@@ -120,15 +176,23 @@ export function skinPreviewHistory(elapsedMs: number): TSkinPoint[] {
   const end = ((elapsedMs % 2500) + 2500) % 2500
   const points: TSkinPoint[] = []
   for (let t = Math.max(0, end - 700); t <= end; t += 10) {
-    const angle = t / 2500 * Math.PI * 2
+    const angle = (t / 2500) * Math.PI * 2
     points.push({ x: 0.5 + Math.sin(angle) * 0.34, y: 0.5 + Math.sin(angle * 2) * 0.22, t })
   }
   return points
 }
 
-export function drawSkinAvatar(ctx: CanvasRenderingContext2D, options: {
-  skin: TSkin; x: number; y: number; size: number; elapsedMs: number; reduced: boolean
-}) {
+export function drawSkinAvatar(
+  ctx: CanvasRenderingContext2D,
+  options: {
+    skin: TSkin
+    x: number
+    y: number
+    size: number
+    elapsedMs: number
+    reduced: boolean
+  }
+) {
   const { skin, x, y, size, elapsedMs, reduced } = options
   const effect = skin.avatar.effect
   ctx.save()

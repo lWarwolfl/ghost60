@@ -42,7 +42,7 @@ test('release: home and play CTAs visible across phones', async ({ browser }) =>
     await expect(page.getByRole('link').first()).toBeVisible()
     await page.goto('/play')
     await page.waitForLoadState('networkidle')
-    const start = page.getByRole('button', { name: /start ranked run|opening/i })
+    const start = page.getByRole('button', { name: /start run|resume run|opening/i })
     if (await start.count()) await expect(start.first()).toBeVisible()
     await ctx.close()
   }
@@ -57,17 +57,17 @@ test('release: ranked CTA is keyboard-operable with visible focus', async ({ bro
   await page.request.post('/api/auth/sign-in/anonymous', { data: {} })
   await page.goto('/play')
   await page.waitForLoadState('networkidle')
-  const start = page.getByRole('button', { name: /start ranked run|opening/i })
+  const start = page.getByRole('button', { name: /start run|resume run|opening/i })
   if (await start.count()) {
     await page.keyboard.press('Tab')
     // tab until the CTA (or any control) receives focus; it must be reachable
     for (let i = 0; i < 12; i += 1) {
       const label = await page.evaluate(() => document.activeElement?.textContent?.trim() ?? '')
-      if (/start ranked run|opening/i.test(label)) break
+      if (/start run|resume run|opening/i.test(label)) break
       await page.keyboard.press('Tab')
     }
     const focused = await page.evaluate(() => document.activeElement?.textContent?.trim() ?? '')
-    expect(focused).toMatch(/start ranked run|opening/i)
+    expect(focused).toMatch(/start run|resume run|opening/i)
   }
   expect(errors).toEqual([])
   await ctx.close()
@@ -99,6 +99,7 @@ test('release: throttled mid-tier load stays within budget', async ({ browser })
 })
 
 test('release: google oauth wiring returns a consent url', async ({ browser }) => {
+  test.skip(!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET, 'Google OAuth credentials are required for provider verification')
   const ctx = await browser.newContext()
   const page = await ctx.newPage()
   const res = await page.request.post('/api/auth/sign-in/social', {
